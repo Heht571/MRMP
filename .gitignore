@@ -1,0 +1,44 @@
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.idea
+.vscode
+.trae
+*.swp
+*.swo
+
+# Environment Variables
+.env
+backend/.env
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+
+# Python / Backend
+backend/__pycache__/
+backend/*.py[cod]
+backend/*$py.class
+backend/venv/
+backend/.pytest_cache/
+backend/.coverage
+backend/htmlcov/
+backend/dist/
+backend/build/
+backend/*.spec
+backend/logs/
+backend/*.log
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+frontend/.vite/
+
+# Docker
+.dockerignore

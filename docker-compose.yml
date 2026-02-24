@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: armp-postgres
+    environment:
+      POSTGRES_USER: armp
+      POSTGRES_PASSWORD: armp
+      POSTGRES_DB: armp_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - armp-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U armp -d armp_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: armp-backend
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://armp:armp@postgres:5432/armp_db
+      - DATABASE_URL_SYNC=postgresql://armp:armp@postgres:5432/armp_db
+      - SECRET_KEY=your-secret-key-change-in-production
+      - BACKEND_CORS_ORIGINS=["http://localhost", "http://localhost:80"]
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - armp-network
+    volumes:
+      - ./backend/app:/app/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: armp-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - armp-network
+
+volumes:
+  postgres_data:
+
+networks:
+  armp-network:
+    driver: bridge
