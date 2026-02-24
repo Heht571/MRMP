@@ -42,3 +42,6 @@ frontend/.vite/
 
 # Docker
 .dockerignore
+
+# Misc
+cmdb-master/
