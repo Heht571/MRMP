@@ -33,6 +33,7 @@ def instance_relation_to_response(ir: InstanceRelation) -> dict:
     response = {
         "id": ir.id,
         "relation_definition_id": ir.relation_definition_id,
+        "relation_definition_name": ir.relation_definition.name if ir.relation_definition else None,
         "source_instance_id": ir.source_instance_id,
         "target_instance_id": ir.target_instance_id,
         "attributes": ir.attributes or {},
@@ -102,26 +103,27 @@ async def create_instance_relation(
     relation_def = await db.execute(
         select(RelationDefinition).where(RelationDefinition.id == relation_in.relation_definition_id)
     )
-    if not relation_def.scalar_one_or_none():
+    relation_def_obj = relation_def.scalar_one_or_none()
+    if not relation_def_obj:
         raise HTTPException(status_code=400, detail="关系定义不存在")
-    
+
     source_instance = await db.execute(
         select(Instance).where(Instance.id == relation_in.source_instance_id)
     )
     source = source_instance.scalar_one_or_none()
     if not source:
         raise HTTPException(status_code=400, detail="源实例不存在")
-    
+
     target_instance = await db.execute(
         select(Instance).where(Instance.id == relation_in.target_instance_id)
     )
     target = target_instance.scalar_one_or_none()
     if not target:
         raise HTTPException(status_code=400, detail="目标实例不存在")
-    
+
     if relation_in.source_instance_id == relation_in.target_instance_id:
         raise HTTPException(status_code=400, detail="源实例和目标实例不能相同")
-    
+
     existed = await db.execute(
         select(InstanceRelation).where(
             InstanceRelation.relation_definition_id == relation_in.relation_definition_id,
@@ -131,10 +133,12 @@ async def create_instance_relation(
     )
     if existed.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="该实例关系已存在")
-    
+
     # 执行业务逻辑校验 (如 U位冲突)
-    await RelationService.validate_creation(db, relation_def.scalar_one(), source, target)
-    
+    await RelationService.validate_creation(db, relation_def_obj, source, target)
+
+    is_bidirectional = relation_def_obj.relation_type == "connect"
+
     instance_relation = InstanceRelation(
         relation_definition_id=relation_in.relation_definition_id,
         source_instance_id=relation_in.source_instance_id,
@@ -145,8 +149,31 @@ async def create_instance_relation(
         sort_order=relation_in.sort_order,
     )
     db.add(instance_relation)
+    await db.flush()
+
+    # 如果是 connect 类型（双向关系），自动创建反向关系
+    if is_bidirectional:
+        reverse_existed = await db.execute(
+            select(InstanceRelation).where(
+                InstanceRelation.relation_definition_id == relation_in.relation_definition_id,
+                InstanceRelation.source_instance_id == relation_in.target_instance_id,
+                InstanceRelation.target_instance_id == relation_in.source_instance_id
+            )
+        )
+        if not reverse_existed.scalar_one_or_none():
+            reverse_relation = InstanceRelation(
+                relation_definition_id=relation_in.relation_definition_id,
+                source_instance_id=relation_in.target_instance_id,
+                target_instance_id=relation_in.source_instance_id,
+                attributes=relation_in.attributes,
+                valid_from=relation_in.valid_from,
+                valid_to=relation_in.valid_to,
+                sort_order=relation_in.sort_order,
+            )
+            db.add(reverse_relation)
+
     await db.commit()
-    
+
     instance_relation = await get_instance_relation_with_details(db, instance_relation.id)
     return instance_relation_to_response(instance_relation)
 
@@ -159,19 +186,22 @@ async def batch_create_instance_relations(
     relation_def = await db.execute(
         select(RelationDefinition).where(RelationDefinition.id == batch_in.relation_definition_id)
     )
-    if not relation_def.scalar_one_or_none():
+    relation_def_obj = relation_def.scalar_one_or_none()
+    if not relation_def_obj:
         raise HTTPException(status_code=400, detail="关系定义不存在")
-    
+
+    is_bidirectional = relation_def_obj.relation_type == "connect"
+
     created_count = 0
     skipped_count = 0
     errors = []
-    
+
     for idx, relation_in in enumerate(batch_in.relations):
         try:
             if relation_in.source_instance_id == relation_in.target_instance_id:
                 errors.append(f"第{idx + 1}条: 源实例和目标实例不能相同")
                 continue
-            
+
             existed = await db.execute(
                 select(InstanceRelation).where(
                     InstanceRelation.relation_definition_id == batch_in.relation_definition_id,
@@ -182,7 +212,7 @@ async def batch_create_instance_relations(
             if existed.scalar_one_or_none():
                 skipped_count += 1
                 continue
-            
+
             instance_relation = InstanceRelation(
                 relation_definition_id=batch_in.relation_definition_id,
                 source_instance_id=relation_in.source_instance_id,
@@ -193,6 +223,29 @@ async def batch_create_instance_relations(
                 sort_order=relation_in.sort_order,
             )
             db.add(instance_relation)
+            await db.flush()
+
+            # 如果是 connect 类型（双向关系），自动创建反向关系
+            if is_bidirectional:
+                reverse_existed = await db.execute(
+                    select(InstanceRelation).where(
+                        InstanceRelation.relation_definition_id == batch_in.relation_definition_id,
+                        InstanceRelation.source_instance_id == relation_in.target_instance_id,
+                        InstanceRelation.target_instance_id == relation_in.source_instance_id
+                    )
+                )
+                if not reverse_existed.scalar_one_or_none():
+                    reverse_relation = InstanceRelation(
+                        relation_definition_id=batch_in.relation_definition_id,
+                        source_instance_id=relation_in.target_instance_id,
+                        target_instance_id=relation_in.source_instance_id,
+                        attributes=relation_in.attributes,
+                        valid_from=relation_in.valid_from,
+                        valid_to=relation_in.valid_to,
+                        sort_order=relation_in.sort_order,
+                    )
+                    db.add(reverse_relation)
+
             created_count += 1
         except Exception as e:
             errors.append(f"第{idx + 1}条: {str(e)}")
@@ -246,10 +299,29 @@ async def delete_instance_relation(
     instance_relation = await get_instance_relation_with_details(db, relation_id)
     if not instance_relation:
         raise HTTPException(status_code=404, detail="实例关系不存在")
-    
+
+    is_bidirectional = instance_relation.relation_definition.relation_type == "connect" if instance_relation.relation_definition else False
+    source_id = instance_relation.source_instance_id
+    target_id = instance_relation.target_instance_id
+    relation_def_id = instance_relation.relation_definition_id
+
     await db.delete(instance_relation)
+
+    # 如果是 connect 类型（双向关系），自动删除反向关系
+    if is_bidirectional:
+        reverse_relation = await db.execute(
+            select(InstanceRelation).where(
+                InstanceRelation.relation_definition_id == relation_def_id,
+                InstanceRelation.source_instance_id == target_id,
+                InstanceRelation.target_instance_id == source_id
+            )
+        )
+        reverse = reverse_relation.scalar_one_or_none()
+        if reverse:
+            await db.delete(reverse)
+
     await db.commit()
-    
+
     return {"message": "删除成功"}
 
 
@@ -260,22 +332,49 @@ async def batch_delete_instance_relations(
 ):
     if not ids:
         raise HTTPException(status_code=400, detail="请提供要删除的关系ID")
-    
+
     result = await db.execute(
-        select(InstanceRelation).where(InstanceRelation.id.in_(ids))
+        select(InstanceRelation)
+        .options(selectinload(InstanceRelation.relation_definition))
+        .where(InstanceRelation.id.in_(ids))
     )
     relations = result.scalars().all()
-    
+
     if not relations:
         raise HTTPException(status_code=404, detail="未找到要删除的关系")
-    
-    deleted_count = 0
+
+    # 收集要删除的反向关系ID，避免重复删除
+    reverse_ids_to_delete = set()
+
     for relation in relations:
+        is_bidirectional = relation.relation_definition.relation_type == "connect" if relation.relation_definition else False
+
+        # 如果是 connect 类型，查找并标记反向关系
+        if is_bidirectional:
+            reverse = await db.execute(
+                select(InstanceRelation.id).where(
+                    InstanceRelation.relation_definition_id == relation.relation_definition_id,
+                    InstanceRelation.source_instance_id == relation.target_instance_id,
+                    InstanceRelation.target_instance_id == relation.source_instance_id
+                )
+            )
+            reverse_relation = reverse.scalar_one_or_none()
+            if reverse_relation and reverse_relation.id not in ids:
+                reverse_ids_to_delete.add(reverse_relation.id)
+
         await db.delete(relation)
-        deleted_count += 1
-    
+
+    # 删除标记的反向关系
+    if reverse_ids_to_delete:
+        reverse_result = await db.execute(
+            select(InstanceRelation).where(InstanceRelation.id.in_(reverse_ids_to_delete))
+        )
+        reverse_relations = reverse_result.scalars().all()
+        for reverse_rel in reverse_relations:
+            await db.delete(reverse_rel)
+
     await db.commit()
-    return {"message": "删除成功", "deleted_count": deleted_count}
+    return {"message": "删除成功", "deleted_count": len(relations) + len(reverse_ids_to_delete)}
 
 
 @router.get("/by-source/{instance_id}", response_model=List[dict])

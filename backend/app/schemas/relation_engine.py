@@ -1,8 +1,13 @@
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from uuid import UUID
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 from enum import Enum
+
+
+class RelationType(str, Enum):
+    CONTAIN = "contain"   # 包含关系，有层级，父→子
+    CONNECT = "connect"   # 连接关系，双向对等
 
 
 class MappingType(str, Enum):
@@ -22,13 +27,10 @@ class RelationDefinitionBase(BaseModel):
     name: str = Field(..., max_length=100, description="关系名称")
     code: str = Field(..., max_length=50, description="关系编码")
     description: Optional[str] = Field(None, max_length=500, description="关系描述")
-    source_model_id: UUID = Field(..., description="源模型ID(子资源)")
-    target_model_id: UUID = Field(..., description="目标模型ID(父资源)")
+    source_model_id: UUID = Field(..., description="源模型ID")
+    target_model_id: UUID = Field(..., description="目标模型ID")
+    relation_type: RelationType = Field(RelationType.CONTAIN, description="关系类型: contain=包含(层级), connect=连接(对等)")
     mapping_type: MappingType = Field(MappingType.ONE_TO_MANY, description="映射类型")
-    relation_label: str = Field(..., max_length=100, description="关系显示名")
-    inverse_label: Optional[str] = Field(None, max_length=100, description="反向关系显示名")
-    is_hierarchical: bool = Field(True, description="是否层级关系")
-    is_bidirectional: bool = Field(False, description="是否双向关系")
     min_cardinality: int = Field(0, description="最小基数")
     max_cardinality: int = Field(-1, description="最大基数(-1表示无限)")
     sort_order: int = Field(0, description="排序序号")
@@ -41,11 +43,8 @@ class RelationDefinitionCreate(RelationDefinitionBase):
 class RelationDefinitionUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
+    relation_type: Optional[RelationType] = None
     mapping_type: Optional[MappingType] = None
-    relation_label: Optional[str] = Field(None, max_length=100)
-    inverse_label: Optional[str] = Field(None, max_length=100)
-    is_hierarchical: Optional[bool] = None
-    is_bidirectional: Optional[bool] = None
     min_cardinality: Optional[int] = None
     max_cardinality: Optional[int] = None
     status: Optional[RelationDefinitionStatus] = None
@@ -70,7 +69,23 @@ class RelationDefinitionResponse(RelationDefinitionBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     created_by: Optional[str] = None
-    
+
+    @computed_field
+    def relation_label(self) -> str:
+        return "包含" if self.relation_type == RelationType.CONTAIN else "连接"
+
+    @computed_field
+    def inverse_label(self) -> str:
+        return "被包含" if self.relation_type == RelationType.CONTAIN else "连接于"
+
+    @computed_field
+    def is_hierarchical(self) -> bool:
+        return self.relation_type == RelationType.CONTAIN
+
+    @computed_field
+    def is_bidirectional(self) -> bool:
+        return self.relation_type == RelationType.CONNECT
+
     class Config:
         from_attributes = True
 

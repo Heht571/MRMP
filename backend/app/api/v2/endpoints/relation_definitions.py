@@ -13,7 +13,8 @@ from app.models.instance import Instance
 from app.schemas.relation_engine import (
     RelationDefinitionCreate, RelationDefinitionUpdate, RelationDefinitionResponse,
     InstanceRelationCreate, InstanceRelationBatchCreate, InstanceRelationUpdate, InstanceRelationResponse,
-    ModelBrief, InstanceBrief, MappingType as MappingTypeSchema, RelationDefinitionStatus as StatusSchema
+    ModelBrief, InstanceBrief, MappingType as MappingTypeSchema, RelationDefinitionStatus as StatusSchema,
+    RelationType
 )
 
 router = APIRouter()
@@ -32,6 +33,10 @@ async def get_relation_definition_with_models(db: AsyncSession, relation_id: UUI
 
 
 def relation_to_response(relation: RelationDefinition) -> dict:
+    # 根据 relation_type 自动计算关系标签
+    rel_type = relation.relation_type or "contain"
+    is_contain = rel_type == "contain"
+
     response = {
         "id": relation.id,
         "name": relation.name,
@@ -39,11 +44,12 @@ def relation_to_response(relation: RelationDefinition) -> dict:
         "description": relation.description,
         "source_model_id": relation.source_model_id,
         "target_model_id": relation.target_model_id,
+        "relation_type": rel_type,
         "mapping_type": relation.mapping_type.value if relation.mapping_type else MappingType.ONE_TO_MANY.value,
-        "relation_label": relation.relation_label,
-        "inverse_label": relation.inverse_label,
-        "is_hierarchical": relation.is_hierarchical,
-        "is_bidirectional": relation.is_bidirectional,
+        "relation_label": "包含" if is_contain else "连接",
+        "inverse_label": "被包含" if is_contain else "连接于",
+        "is_hierarchical": is_contain,
+        "is_bidirectional": not is_contain,
         "min_cardinality": relation.min_cardinality,
         "max_cardinality": relation.max_cardinality,
         "status": relation.status.value if relation.status else RelationDefinitionStatus.DRAFT.value,
@@ -52,7 +58,7 @@ def relation_to_response(relation: RelationDefinition) -> dict:
         "updated_at": relation.updated_at,
         "created_by": relation.created_by,
     }
-    
+
     if relation.source_model:
         response["source_model"] = {
             "id": relation.source_model.id,
@@ -60,7 +66,7 @@ def relation_to_response(relation: RelationDefinition) -> dict:
             "code": relation.source_model.code,
             "category": relation.source_model.category,
         }
-    
+
     if relation.target_model:
         response["target_model"] = {
             "id": relation.target_model.id,
@@ -68,7 +74,7 @@ def relation_to_response(relation: RelationDefinition) -> dict:
             "code": relation.target_model.code,
             "category": relation.target_model.category,
         }
-    
+
     return response
 
 
@@ -113,33 +119,30 @@ async def create_relation_definition(
     )
     if existed.scalar_one_or_none():
         raise HTTPException(status_code=400, detail=f"关系编码 '{relation_in.code}' 已存在")
-    
+
     source_model = await db.execute(
         select(Model).where(Model.id == relation_in.source_model_id)
     )
     if not source_model.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="源模型不存在")
-    
+
     target_model = await db.execute(
         select(Model).where(Model.id == relation_in.target_model_id)
     )
     if not target_model.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="目标模型不存在")
-    
+
     if relation_in.source_model_id == relation_in.target_model_id:
         raise HTTPException(status_code=400, detail="源模型和目标模型不能相同")
-    
+
     relation = RelationDefinition(
         name=relation_in.name,
         code=relation_in.code,
         description=relation_in.description,
         source_model_id=relation_in.source_model_id,
         target_model_id=relation_in.target_model_id,
+        relation_type=relation_in.relation_type.value,
         mapping_type=relation_in.mapping_type,
-        relation_label=relation_in.relation_label,
-        inverse_label=relation_in.inverse_label,
-        is_hierarchical=relation_in.is_hierarchical,
-        is_bidirectional=relation_in.is_bidirectional,
         min_cardinality=relation_in.min_cardinality,
         max_cardinality=relation_in.max_cardinality,
         sort_order=relation_in.sort_order,
@@ -147,7 +150,7 @@ async def create_relation_definition(
     )
     db.add(relation)
     await db.commit()
-    
+
     relation = await get_relation_definition_with_models(db, relation.id)
     return relation_to_response(relation)
 

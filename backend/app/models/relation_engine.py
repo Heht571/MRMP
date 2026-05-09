@@ -51,13 +51,10 @@ class RelationDefinition(Base):
         default=MappingType.ONE_TO_MANY,
         comment="映射类型: one_to_one/one_to_many/many_to_one/many_to_many"
     )
-    
-    relation_label = Column(String(100), nullable=False, comment="关系显示名(如: 包含)")
-    inverse_label = Column(String(100), nullable=True, comment="反向关系显示名(如: 属于)")
-    
-    is_hierarchical = Column(Boolean, default=True, comment="是否层级关系(用于层级视图)")
-    is_bidirectional = Column(Boolean, default=False, comment="是否双向关系")
-    
+
+    # 关系类型: contain=包含(层级), connect=连接(对等)
+    relation_type = Column(String(20), default="contain", nullable=False, comment="关系类型: contain=包含(层级), connect=连接(对等)")
+
     min_cardinality = Column(Integer, default=0, comment="最小基数")
     max_cardinality = Column(Integer, default=-1, comment="最大基数(-1表示无限)")
     
