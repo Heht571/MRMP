@@ -1,64 +1,64 @@
 <template>
-  <PageContainer 
-    title="资源实例管理" 
+  <PageContainer
+    title="资源实例管理"
     description="管理各类资源的具体实例数据，支持动态表单和批量操作。"
   >
-    <div class="p-4 space-y-4">
+    <div class="instances-page">
       <!-- Filter Bar -->
-      <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-wrap gap-4 items-center justify-between">
-        <div class="flex items-center gap-4 flex-wrap">
-          <div class="flex items-center gap-2">
-            <span class="text-sm font-medium text-gray-600">资源类型</span>
-            <el-select 
-              v-model="selectedModelId" 
-              placeholder="请选择模型" 
-              class="w-56" 
+      <div class="filter-bar">
+        <div class="filter-left">
+          <div class="filter-item">
+            <span class="filter-label">资源类型</span>
+            <el-select
+              v-model="selectedModelId"
+              placeholder="请选择模型"
+              class="model-select"
               @change="handleModelChange"
               filterable
             >
-              <el-option 
-                v-for="model in models" 
-                :key="model.id" 
-                :label="model.name" 
-                :value="model.id" 
+              <el-option
+                v-for="model in models"
+                :key="model.id"
+                :label="model.name"
+                :value="model.id"
               >
-                <div class="flex items-center gap-2">
-                  <div class="w-2 h-2 rounded-full" :style="{ backgroundColor: model.color || '#ccc' }"></div>
+                <div class="model-option">
+                  <div class="model-dot" :style="{ backgroundColor: model.color || '#ccc' }"></div>
                   <span>{{ model.name }}</span>
                 </div>
               </el-option>
             </el-select>
           </div>
-          
-          <div class="flex items-center gap-2">
-            <span class="text-sm font-medium text-gray-600">关键字</span>
-            <el-input 
-              v-model="filters.keyword" 
-              placeholder="名称 / 编码" 
-              clearable 
-              class="w-64"
+
+          <div class="filter-item">
+            <span class="filter-label">关键字</span>
+            <el-input
+              v-model="filters.keyword"
+              placeholder="名称 / 编码"
+              clearable
+              class="keyword-input"
               @keyup.enter="handleSearch"
             >
               <template #prefix><el-icon><Search /></el-icon></template>
             </el-input>
           </div>
 
-          <el-button type="primary" @click="handleSearch" class="bg-indigo-600 border-indigo-600 hover:bg-indigo-700">
+          <el-button type="primary" @click="handleSearch">
             搜索
           </el-button>
           <el-button @click="handleReset">重置</el-button>
-          
-          <el-button 
-            type="primary" 
-            link 
+
+          <el-button
+            type="primary"
+            link
             @click="showAdvancedSearch = !showAdvancedSearch"
             :disabled="!selectedModelId"
           >
-            <el-icon class="mr-1"><Filter /></el-icon> 高级搜索
+            <el-icon><Filter /></el-icon> 高级搜索
           </el-button>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div class="filter-right">
            <el-dropdown trigger="click" @command="handleMoreAction">
             <el-button>
               更多操作 <el-icon class="el-icon--right"><ArrowDown /></el-icon>
@@ -81,27 +81,26 @@
             </template>
           </el-dropdown>
 
-          <el-button 
-            type="primary" 
-            @click="handleAdd" 
+          <el-button
+            type="primary"
+            @click="handleAdd"
             :disabled="!selectedModelId"
-            class="bg-indigo-600 border-indigo-600 hover:bg-indigo-700"
           >
-            <el-icon class="mr-1"><Plus /></el-icon> 新增实例
+            <el-icon><Plus /></el-icon> 新增实例
           </el-button>
         </div>
       </div>
 
       <!-- Advanced Search Builder -->
       <transition name="el-zoom-in-top">
-        <div v-if="showAdvancedSearch && currentModel" class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-          <div class="text-sm font-semibold text-gray-700 mb-3 flex items-center justify-between">
+        <div v-if="showAdvancedSearch && currentModel" class="advanced-search">
+          <div class="section-title flex items-center justify-between">
             <span>高级筛选</span>
             <el-button type="primary" link size="small" @click="showAdvancedSearch = false">收起</el-button>
           </div>
-          <SearchBuilder 
-            :attributes="currentModel.attributes" 
-            @search="handleAdvancedSearch" 
+          <SearchBuilder
+            :attributes="currentModel.attributes"
+            @search="handleAdvancedSearch"
             @reset="handleAdvancedReset"
           />
         </div>
@@ -109,10 +108,10 @@
 
       <!-- Action Bar for Selection -->
       <transition name="el-fade-in">
-        <div v-if="selectedRows.length > 0" class="bg-indigo-50 border border-indigo-100 rounded-lg p-3 flex items-center justify-between">
-          <div class="flex items-center gap-2 text-indigo-700 text-sm">
+        <div v-if="selectedRows.length > 0" class="selection-bar">
+          <div style="display: flex; align-items: center; gap: var(--space-sm); color: var(--color-accent); font-size: 14px;">
             <el-icon><InfoFilled /></el-icon>
-            已选择 <span class="font-bold">{{ selectedRows.length }}</span> 项
+            已选择 <span style="font-weight: bold;">{{ selectedRows.length }}</span> 项
           </div>
           <el-button type="danger" size="small" @click="handleBatchDelete" plain>
             批量删除
@@ -121,26 +120,24 @@
       </transition>
 
       <!-- Table -->
-      <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <el-table 
-          :data="instances" 
-          v-loading="loading" 
-          stripe 
-          style="width: 100%" 
+      <div class="table-container">
+        <el-table
+          :data="instances"
+          v-loading="loading"
+          stripe
+          style="width: 100%"
           v-if="currentModel"
           @selection-change="handleSelectionChange"
-          :header-cell-style="{ background: '#f8fafc', color: '#475569', fontWeight: '600' }"
-          :row-class-name="'hover:bg-gray-50 transition-colors'"
         >
           <el-table-column type="selection" width="50" />
           <el-table-column prop="name" label="名称" width="180" fixed="left">
             <template #default="{ row }">
-              <span class="font-medium text-gray-900">{{ row.name }}</span>
+              <span style="font-weight: 500; color: var(--color-text-dark);">{{ row.name }}</span>
             </template>
           </el-table-column>
           <el-table-column prop="code" label="编码" width="150">
             <template #default="{ row }">
-              <span class="font-mono text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">{{ row.code }}</span>
+              <span style="font-family: monospace; font-size: 12px; color: var(--color-text-tertiary); background: var(--color-bg-light); padding: 2px 6px; border-radius: 4px;">{{ row.code }}</span>
             </template>
           </el-table-column>
           
@@ -152,21 +149,21 @@
             </template>
           </el-table-column>
           
-          <el-table-column 
-            v-for="attr in displayAttributes" 
+          <el-table-column
+            v-for="attr in displayAttributes"
             :key="attr.id"
-            :prop="attr.name" 
-            :label="attr.label" 
+            :prop="attr.name"
+            :label="attr.label"
             :min-width="140"
           >
             <template #default="{ row }">
-              <span class="text-gray-600">{{ formatAttributeValue(row.data?.[attr.name], attr) }}</span>
+              <span style="color: var(--color-text-secondary);">{{ formatAttributeValue(row.data?.[attr.name], attr) }}</span>
             </template>
           </el-table-column>
-          
+
           <el-table-column label="操作" width="150" fixed="right">
             <template #default="{ row }">
-              <div class="flex items-center gap-2">
+              <div style="display: flex; align-items: center; gap: var(--space-sm);">
                 <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
                 <el-button type="primary" link size="small" @click="handleShowAudit(row)">变更记录</el-button>
                 <el-button type="primary" link size="small" @click="$router.push(`/topology?root_id=${row.id}`)">
@@ -181,7 +178,7 @@
         <el-empty v-else description="请先选择资源类型以查看数据" :image-size="120" />
 
         <!-- Pagination -->
-        <div v-if="currentModel" class="p-4 flex justify-end border-t border-gray-200">
+        <div v-if="currentModel" class="pagination-bar">
           <el-pagination
             v-model:current-page="pagination.page"
             v-model:page-size="pagination.pageSize"
@@ -196,44 +193,31 @@
     </div>
 
     <!-- Edit Dialog -->
-    <el-dialog 
-      v-model="dialogVisible" 
-      :title="dialogTitle" 
-      width="800px" 
+    <el-dialog
+      v-model="dialogVisible"
+      :title="dialogTitle"
+      width="800px"
       destroy-on-close
-      class="rounded-xl"
     >
-      <el-form ref="formRef" :model="formData" :rules="formRules" label-width="120px" class="py-4">
-        <div class="bg-gray-50 p-4 rounded-lg border border-gray-100 mb-6">
-          <div class="text-sm font-semibold text-gray-700 mb-4 border-l-4 border-indigo-500 pl-2">基础信息</div>
-          <el-row :gutter="24">
-            <el-col :span="8">
-              <el-form-item label="名称" prop="name">
-                <el-input v-model="formData.name" placeholder="请输入名称" />
-              </el-form-item>
-            </el-col>
-            <el-col :span="8">
-              <el-form-item label="编码" prop="code">
-                <el-input v-model="formData.code" placeholder="请输入编码" />
-              </el-form-item>
-            </el-col>
-            <el-col :span="8">
-              <el-form-item label="状态" prop="status">
-                <el-select v-model="formData.status" placeholder="请选择状态" class="w-full">
-                  <el-option 
-                    v-for="opt in STATUS_OPTIONS" 
-                    :key="opt.value" 
-                    :label="opt.label" 
-                    :value="opt.value" 
-                  />
-                </el-select>
-              </el-form-item>
-            </el-col>
-          </el-row>
-        </div>
+      <el-form ref="formRef" :model="formData" :rules="formRules" label-width="120px">
+        <div class="form-section">
+           <div class="section-title">基础信息</div>
+           <el-row :gutter="24">
+             <el-col :span="12">
+               <el-form-item label="名称" prop="name">
+                 <el-input v-model="formData.name" placeholder="请输入名称" />
+               </el-form-item>
+             </el-col>
+             <el-col :span="12">
+               <el-form-item label="编码" prop="code">
+                 <el-input v-model="formData.code" placeholder="请输入编码" />
+               </el-form-item>
+             </el-col>
+           </el-row>
+         </div>
         
         <div v-if="formAttributes.length > 0">
-          <div class="text-sm font-semibold text-gray-700 mb-4 border-l-4 border-indigo-500 pl-2">扩展属性</div>
+          <div class="section-title">扩展属性</div>
           <el-row :gutter="24">
             <el-col 
               v-for="attr in formAttributes" 
@@ -252,19 +236,17 @@
                   :placeholder="`请输入${attr.label}`" 
                 />
                 <!-- Number -->
-                <el-input-number 
-                  v-else-if="attr.type === 'number'" 
-                  v-model="formData.data[attr.name]" 
+                <el-input-number
+                  v-else-if="attr.type === 'number'"
+                  v-model="formData.data[attr.name]"
                   style="width: 100%"
-                  class="w-full"
                 />
                 <!-- Enum -->
-                <el-select 
-                  v-else-if="attr.type === 'enum'" 
-                  v-model="formData.data[attr.name]" 
+                <el-select
+                  v-else-if="attr.type === 'enum'"
+                  v-model="formData.data[attr.name]"
                   :placeholder="`请选择${attr.label}`"
                   style="width: 100%"
-                  class="w-full"
                   clearable
                 >
                   <el-option 
@@ -312,22 +294,22 @@
       <template #footer>
         <div class="flex justify-end gap-3">
           <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleSubmit" :loading="submitting" class="bg-indigo-600 border-indigo-600 hover:bg-indigo-700">确定</el-button>
+          <el-button type="primary" @click="handleSubmit" :loading="submitting">确定</el-button>
         </div>
       </template>
     </el-dialog>
 
     <!-- Import Dialog -->
-    <el-dialog v-model="importDialogVisible" title="导入数据" width="900px" destroy-on-close class="rounded-xl">
-      <el-steps :active="importStep" finish-status="success" simple class="mb-6 bg-gray-50 p-2 rounded-lg">
+    <el-dialog v-model="importDialogVisible" title="导入数据" width="900px" destroy-on-close>
+      <el-steps :active="importStep" finish-status="success" simple style="margin-bottom: var(--space-md);">
         <el-step title="上传文件" />
         <el-step title="字段映射" />
         <el-step title="数据预览" />
         <el-step title="导入设置" />
       </el-steps>
 
-      <div v-show="importStep === 0" class="p-4">
-        <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-indigo-500 transition-colors bg-gray-50">
+      <div v-show="importStep === 0" style="padding: var(--space-md);">
+        <div style="border: 2px dashed var(--color-text-tertiary); border-radius: var(--radius-xl); padding: var(--space-xl); text-align: center; transition: all var(--transition-fast);">
            <el-upload
             ref="uploadRef"
             :auto-upload="false"
@@ -337,38 +319,38 @@
             :on-exceed="handleExceed"
             drag
             action=""
-            class="w-full"
+            style="width: 100%;"
           >
-            <el-icon class="text-6xl text-gray-400 mb-4"><UploadFilled /></el-icon>
-            <div class="text-gray-600">
-              将文件拖到此处，或 <em class="text-indigo-600 font-medium not-italic">点击上传</em>
+            <el-icon style="font-size: 48px; color: var(--color-text-tertiary); margin-bottom: var(--space-sm);"><UploadFilled /></el-icon>
+            <div style="color: var(--color-text-secondary);">
+              将文件拖到此处，或 <em style="color: var(--color-accent); font-style: normal; font-weight: 500;">点击上传</em>
             </div>
             <template #tip>
-              <div class="text-xs text-gray-400 mt-2">只能上传 xlsx/xls 文件，最大支持50000行数据</div>
+              <div style="font-size: 12px; color: var(--color-text-tertiary); margin-top: var(--space-xs);">只能上传 xlsx/xls 文���，最大支持50000行数据</div>
             </template>
           </el-upload>
         </div>
       </div>
 
       <div v-show="importStep === 1">
-        <el-alert title="请确认文件列与系统字段的映射关系" type="warning" :closable="false" show-icon class="mb-4" />
-        <el-table :data="fieldMappingData" border style="width: 100%" height="400">
+        <el-alert title="请确认文件列与系统字段的映射关系" type="warning" :closable="false" show-icon style="margin-bottom: var(--space-md);" />
+        <el-table :data="fieldMappingData" border style="width: 100%;" height="400">
           <el-table-column prop="systemField" label="系统字段" width="180">
             <template #default="{ row }">
-              <span :class="{ 'font-bold text-gray-800': row.required }">
+              <span :style="{ fontWeight: row.required ? 600 : 400, color: row.required ? 'var(--color-text-dark)' : 'var(--color-text-secondary)' }">
                 {{ row.systemLabel }}
-                <span v-if="row.required" class="text-red-500">*</span>
+                <span v-if="row.required" style="color: var(--color-danger);">*</span>
               </span>
             </template>
           </el-table-column>
           <el-table-column prop="fileColumn" label="文件列">
             <template #default="{ row }">
-              <el-select v-model="row.mappedColumn" placeholder="选择对应列" clearable class="w-full">
-                <el-option 
-                  v-for="col in previewData.fileColumns" 
-                  :key="col" 
-                  :label="col" 
-                  :value="col" 
+              <el-select v-model="row.mappedColumn" placeholder="选择对应列" clearable style="width: 100%;">
+                <el-option
+                  v-for="col in previewData.fileColumns"
+                  :key="col"
+                  :label="col"
+                  :value="col"
                 />
               </el-select>
             </template>
@@ -384,49 +366,49 @@
       </div>
 
       <div v-show="importStep === 2">
-        <div class="grid grid-cols-4 gap-4 mb-4">
-          <div class="bg-gray-50 p-3 rounded border border-gray-200 text-center">
-            <div class="text-xs text-gray-500 mb-1">总行数</div>
-            <div class="text-lg font-bold text-gray-800">{{ previewData.total || 0 }}</div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-md); margin-bottom: var(--space-md);">
+          <div style="background: var(--color-bg-light); padding: var(--space-sm); border-radius: var(--radius-md); text-align: center; border: 1px solid rgba(0,0,0,0.06);">
+            <div style="font-size: 12px; color: var(--color-text-tertiary); margin-bottom: 4px;">总行数</div>
+            <div style="font-size: 18px; font-weight: 600; color: var(--color-text-dark);">{{ previewData.total || 0 }}</div>
           </div>
-          <div class="bg-green-50 p-3 rounded border border-green-200 text-center">
-            <div class="text-xs text-green-600 mb-1">预计新增</div>
-            <div class="text-lg font-bold text-green-700">{{ previewData.createCount || 0 }}</div>
+          <div style="background: #f0fdf4; padding: var(--space-sm); border-radius: var(--radius-md); text-align: center; border: 1px solid #bbf7d0;">
+            <div style="font-size: 12px; color: #16a34a; margin-bottom: 4px;">预计新增</div>
+            <div style="font-size: 18px; font-weight: 600; color: #15803d;">{{ previewData.createCount || 0 }}</div>
           </div>
-          <div class="bg-amber-50 p-3 rounded border border-amber-200 text-center">
-            <div class="text-xs text-amber-600 mb-1">预计更新</div>
-            <div class="text-lg font-bold text-amber-700">{{ previewData.updateCount || 0 }}</div>
+          <div style="background: #fffbeb; padding: var(--space-sm); border-radius: var(--radius-md); text-align: center; border: 1px solid #fde68a;">
+            <div style="font-size: 12px; color: #d97706; margin-bottom: 4px;">预计更新</div>
+            <div style="font-size: 18px; font-weight: 600; color: #b45309;">{{ previewData.updateCount || 0 }}</div>
           </div>
-          <div class="bg-red-50 p-3 rounded border border-red-200 text-center">
-            <div class="text-xs text-red-600 mb-1">错误行数</div>
-            <div class="text-lg font-bold text-red-700">{{ previewData.errorCount || 0 }}</div>
+          <div style="background: #fef2f2; padding: var(--space-sm); border-radius: var(--radius-md); text-align: center; border: 1px solid #fecaca;">
+            <div style="font-size: 12px; color: #dc2626; margin-bottom: 4px;">错误行数</div>
+            <div style="font-size: 18px; font-weight: 600; color: #b91c1c;">{{ previewData.errorCount || 0 }}</div>
           </div>
         </div>
-        
-        <el-alert 
-          v-if="previewData.errors && previewData.errors.length > 0" 
-          type="error" 
-          :closable="false" 
-          class="mb-4"
+
+        <el-alert
+          v-if="previewData.errors && previewData.errors.length > 0"
+          type="error"
+          :closable="false"
+          style="margin-bottom: var(--space-md);"
         >
           <template #title>发现 {{ previewData.errorCount }} 个错误</template>
-          <div class="max-h-24 overflow-y-auto text-xs mt-2">
+          <div style="max-height: 60px; overflow-y: auto; font-size: 12px; margin-top: var(--space-xs);">
             <div v-for="(error, idx) in previewData.errors.slice(0, 10)" :key="idx">{{ error }}</div>
             <div v-if="previewData.errors.length > 10">...还有 {{ previewData.errors.length - 10 }} 个错误</div>
           </div>
         </el-alert>
         
-        <el-table :data="previewData.data" border style="width: 100%" height="300" size="small">
+        <el-table :data="previewData.data" border style="width: 100%;" height="300" size="small">
           <el-table-column prop="name" label="名称" width="120" fixed />
           <el-table-column prop="code" label="编码" width="120" fixed>
             <template #default="{ row }">
               <span>{{ row.code }}</span>
-              <el-tag v-if="row._status === 'update'" type="warning" size="small" class="ml-1 scale-75 origin-left">更</el-tag>
-              <el-tag v-else type="success" size="small" class="ml-1 scale-75 origin-left">新</el-tag>
+              <el-tag v-if="row._status === 'update'" type="warning" size="small" style="margin-left: 4px; transform: scale(0.75); transform-origin: left;">更</el-tag>
+              <el-tag v-else type="success" size="small" style="margin-left: 4px; transform: scale(0.75); transform-origin: left;">新</el-tag>
             </template>
           </el-table-column>
-          <el-table-column 
-            v-for="(col, idx) in previewData.columns?.slice(2)" 
+          <el-table-column
+            v-for="(col, idx) in previewData.columns?.slice(2)"
             :key="idx"
             :label="col"
             min-width="100"
@@ -437,42 +419,42 @@
           </el-table-column>
           <el-table-column label="状态" width="80" fixed="right" align="center">
             <template #default="{ row }">
-              <el-icon v-if="row._errors && row._errors.length > 0" class="text-red-500"><WarningFilled /></el-icon>
-              <el-icon v-else class="text-green-500"><CircleCheckFilled /></el-icon>
+              <el-icon v-if="row._errors && row._errors.length > 0" style="color: var(--color-danger);"><WarningFilled /></el-icon>
+              <el-icon v-else style="color: var(--color-success);"><CircleCheckFilled /></el-icon>
             </template>
           </el-table-column>
         </el-table>
       </div>
 
-      <div v-show="importStep === 3" class="p-8 max-w-2xl mx-auto">
+      <div v-show="importStep === 3" style="padding: var(--space-xl); max-width: 600px; margin: 0 auto;">
         <el-form label-position="top">
           <el-form-item label="导入模式">
-            <div class="grid grid-cols-1 gap-4 w-full">
-              <div 
-                class="border rounded-lg p-4 cursor-pointer transition-colors hover:border-indigo-500 flex items-start gap-3"
-                :class="importMode === 'upsert' ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200'"
+            <div style="display: flex; flex-direction: column; gap: var(--space-md); width: 100%;">
+              <div
+                style="border: 1px solid var(--color-text-tertiary); border-radius: var(--radius-lg); padding: var(--space-md); cursor: pointer; transition: all var(--transition-fast); display: flex; align-items: flex-start; gap: var(--space-sm);"
+                :style="importMode === 'upsert' ? { borderColor: 'var(--color-accent)', background: '#eff6ff' } : {}"
                 @click="importMode = 'upsert'"
               >
-                <el-radio v-model="importMode" value="upsert" class="mt-1" />
+                <el-radio v-model="importMode" value="upsert" style="margin-top: 2px;" />
                 <div>
-                  <div class="font-medium text-gray-900">智能导入 (推荐)</div>
-                  <div class="text-xs text-gray-500 mt-1">编码存在则更新，不存在则新增</div>
+                  <div style="font-weight: 500; color: var(--color-text-dark);">智能导入 (推荐)</div>
+                  <div style="font-size: 12px; color: var(--color-text-tertiary); margin-top: 4px;">编码存在则更新，不存在则新增</div>
                 </div>
               </div>
-               <div 
-                class="border rounded-lg p-4 cursor-pointer transition-colors hover:border-indigo-500 flex items-start gap-3"
-                :class="importMode === 'create_only' ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200'"
+              <div
+                style="border: 1px solid var(--color-text-tertiary); border-radius: var(--radius-lg); padding: var(--space-md); cursor: pointer; transition: all var(--transition-fast); display: flex; align-items: flex-start; gap: var(--space-sm);"
+                :style="importMode === 'create_only' ? { borderColor: 'var(--color-accent)', background: '#eff6ff' } : {}"
                 @click="importMode = 'create_only'"
               >
-                <el-radio v-model="importMode" value="create_only" class="mt-1" />
+                <el-radio v-model="importMode" value="create_only" style="margin-top: 2px;" />
                 <div>
-                  <div class="font-medium text-gray-900">仅新增</div>
-                  <div class="text-xs text-gray-500 mt-1">仅新增数据，遇到重复编码将跳过</div>
+                  <div style="font-weight: 500; color: var(--color-text-dark);">仅新增</div>
+                  <div style="font-size: 12px; color: var(--color-text-tertiary); margin-top: 4px;">仅新增数据，遇到重复编码将跳过</div>
                 </div>
               </div>
             </div>
           </el-form-item>
-          
+
           <el-form-item label="错误处理">
              <el-radio-group v-model="errorHandling">
               <el-radio value="skip">跳过错误行</el-radio>
@@ -483,75 +465,75 @@
       </div>
 
       <template #footer>
-        <div class="flex justify-between w-full">
+        <div style="display: flex; justify-content: space-between; width: 100%;">
           <el-button @click="importDialogVisible = false">取消</el-button>
-          <div class="flex gap-2">
+          <div style="display: flex; gap: var(--space-sm);">
             <el-button v-if="importStep > 0" @click="importStep--">上一步</el-button>
-            <el-button v-if="importStep < 3" type="primary" @click="nextImportStep" :disabled="!importFile" class="bg-indigo-600 border-indigo-600">下一步</el-button>
-            <el-button v-if="importStep === 3" type="primary" @click="handleImportSubmit" :loading="importing" class="bg-indigo-600 border-indigo-600">确认导入</el-button>
+            <el-button v-if="importStep < 3" type="primary" @click="nextImportStep" :disabled="!importFile">下一步</el-button>
+            <el-button v-if="importStep === 3" type="primary" @click="handleImportSubmit" :loading="importing">确认导入</el-button>
           </div>
         </div>
       </template>
     </el-dialog>
 
     <!-- Import Result Dialog -->
-    <el-dialog v-model="importResultVisible" title="导入结果" width="600px" class="rounded-xl">
-      <div class="text-center py-6">
-        <el-icon class="text-5xl text-green-500 mb-4"><CircleCheckFilled /></el-icon>
-        <h3 class="text-xl font-bold text-gray-900 mb-2">处理完成</h3>
-        <p class="text-gray-500">文件处理结束，以下是详细结果</p>
+    <el-dialog v-model="importResultVisible" title="导入结果" width="600px">
+      <div style="text-align: center; padding: var(--space-lg);">
+        <el-icon style="font-size: 48px; color: var(--color-success); margin-bottom: var(--space-md);"><CircleCheckFilled /></el-icon>
+        <h3 style="font-size: 20px; font-weight: 600; color: var(--color-text-dark); margin-bottom: var(--space-sm);">处理完成</h3>
+        <p style="color: var(--color-text-secondary);">文件处理结束，以下是详细结果</p>
       </div>
-      
-      <div class="grid grid-cols-4 gap-4 mb-6 text-center">
-        <div class="bg-green-50 p-2 rounded">
-          <div class="text-xs text-green-600">新增</div>
-          <div class="font-bold text-green-700">{{ importResult.created || 0 }}</div>
+
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-md); margin-bottom: var(--space-lg); text-align: center;">
+        <div style="background: #f0fdf4; padding: var(--space-xs); border-radius: var(--radius-md);">
+          <div style="font-size: 12px; color: #16a34a;">新增</div>
+          <div style="font-weight: 600; color: #15803d;">{{ importResult.created || 0 }}</div>
         </div>
-        <div class="bg-amber-50 p-2 rounded">
-          <div class="text-xs text-amber-600">更新</div>
-          <div class="font-bold text-amber-700">{{ importResult.updated || 0 }}</div>
+        <div style="background: #fffbeb; padding: var(--space-xs); border-radius: var(--radius-md);">
+          <div style="font-size: 12px; color: #d97706;">更新</div>
+          <div style="font-weight: 600; color: #b45309;">{{ importResult.updated || 0 }}</div>
         </div>
-        <div class="bg-gray-50 p-2 rounded">
-          <div class="text-xs text-gray-600">跳过</div>
-          <div class="font-bold text-gray-700">{{ importResult.skipped || 0 }}</div>
+        <div style="background: var(--color-bg-light); padding: var(--space-xs); border-radius: var(--radius-md);">
+          <div style="font-size: 12px; color: var(--color-text-secondary);">跳过</div>
+          <div style="font-weight: 600; color: var(--color-text-dark);">{{ importResult.skipped || 0 }}</div>
         </div>
-        <div class="bg-red-50 p-2 rounded">
-          <div class="text-xs text-red-600">失败</div>
-          <div class="font-bold text-red-700">{{ importResult.errors?.length || 0 }}</div>
+        <div style="background: #fef2f2; padding: var(--space-xs); border-radius: var(--radius-md);">
+          <div style="font-size: 12px; color: #dc2626;">失败</div>
+          <div style="font-weight: 600; color: #b91c1c;">{{ importResult.errors?.length || 0 }}</div>
         </div>
       </div>
-      
-      <el-alert 
-        v-if="importResult.errors && importResult.errors.length > 0" 
-        type="error" 
-        :closable="false" 
+
+      <el-alert
+        v-if="importResult.errors && importResult.errors.length > 0"
+        type="error"
+        :closable="false"
         title="错误详情"
       >
-        <div class="max-h-32 overflow-y-auto mt-2 text-xs">
-          <div v-for="(error, idx) in importResult.errors" :key="idx" class="mb-1">{{ error }}</div>
+        <div style="max-height: 80px; overflow-y: auto; margin-top: var(--space-xs); font-size: 12px;">
+          <div v-for="(error, idx) in importResult.errors" :key="idx" style="margin-bottom: 4px;">{{ error }}</div>
         </div>
       </el-alert>
-      
+
       <template #footer>
-        <el-button type="primary" @click="importResultVisible = false" class="w-full bg-indigo-600 border-indigo-600">确定</el-button>
+        <el-button type="primary" @click="importResultVisible = false" style="width: 100%;">确定</el-button>
       </template>
     </el-dialog>
 
     <!-- Import History Dialog -->
-    <el-dialog v-model="importHistoryVisible" title="导入历史" width="900px" class="rounded-xl">
+    <el-dialog v-model="importHistoryVisible" title="导入历史" width="900px">
       <el-table :data="importHistoryList" v-loading="importHistoryLoading" stripe>
         <el-table-column prop="file_name" label="文件名" min-width="200" />
         <el-table-column prop="started_at" label="导入时间" width="180">
           <template #default="{ row }">
-            <span class="text-gray-500 text-xs">{{ formatDateTime(row.started_at) }}</span>
+            <span style="color: var(--color-text-tertiary); font-size: 12px;">{{ formatDateTime(row.started_at) }}</span>
           </template>
         </el-table-column>
         <el-table-column label="结果统计" width="220">
           <template #default="{ row }">
-            <div class="flex gap-2 text-xs">
-              <span class="text-green-600">Add:{{ row.created_count }}</span>
-              <span class="text-amber-600">Upd:{{ row.updated_count }}</span>
-              <span class="text-red-600">Err:{{ row.error_count }}</span>
+            <div style="display: flex; gap: var(--space-sm); font-size: 12px;">
+              <span style="color: var(--color-success);">Add:{{ row.created_count }}</span>
+              <span style="color: var(--color-warning);">Upd:{{ row.updated_count }}</span>
+              <span style="color: var(--color-danger);">Err:{{ row.error_count }}</span>
             </div>
           </template>
         </el-table-column>
@@ -569,8 +551,8 @@
           </template>
         </el-table-column>
       </el-table>
-      
-      <div class="mt-4 flex justify-end">
+
+      <div style="margin-top: var(--space-md); display: flex; justify-content: flex-end;">
         <el-pagination
           v-model:current-page="importHistoryPage"
           :page-size="10"
@@ -582,8 +564,8 @@
     </el-dialog>
 
     <!-- Instance Audit Dialog -->
-    <el-dialog v-model="auditDialogVisible" title="变更记录" width="800px" class="rounded-xl">
-      <div class="max-h-[600px] overflow-y-auto p-4">
+    <el-dialog v-model="auditDialogVisible" title="变更记录" width="800px">
+      <div style="max-height: 600px; overflow-y: auto; padding: var(--space-md);">
         <el-timeline>
           <el-timeline-item
             v-for="(activity, index) in auditList"
@@ -592,39 +574,39 @@
             placement="top"
             :type="activity.operate_type === 'create' ? 'success' : activity.operate_type === 'delete' ? 'danger' : 'primary'"
           >
-            <el-card shadow="hover" class="border-gray-200">
-              <div class="flex justify-between items-center mb-3 pb-2 border-b border-gray-100">
-                <div class="flex items-center gap-2">
+            <el-card shadow="hover" style="border: 1px solid rgba(0,0,0,0.06);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-sm); padding-bottom: var(--space-sm); border-bottom: 1px solid rgba(0,0,0,0.06);">
+                <div style="display: flex; align-items: center; gap: var(--space-sm);">
                   <el-tag size="small" :type="activity.operate_type === 'create' ? 'success' : activity.operate_type === 'delete' ? 'danger' : 'warning'">
                     {{ activity.operate_type.toUpperCase() }}
                   </el-tag>
-                  <span class="text-sm font-medium text-gray-700">操作来源: {{ activity.origin || 'API' }}</span>
+                  <span style="font-size: 14px; font-weight: 500; color: var(--color-text-dark);">操作来源: {{ activity.origin || 'API' }}</span>
                 </div>
-                <span class="text-xs text-gray-500 flex items-center gap-1">
+                <span style="font-size: 12px; color: var(--color-text-tertiary); display: flex; align-items: center; gap: 4px;">
                   <el-icon><User /></el-icon> {{ activity.created_by || 'Unknown' }}
                 </span>
               </div>
-              
-              <div v-if="activity.changes && activity.changes.length" class="bg-gray-50 rounded-lg p-2">
-                <el-table :data="activity.changes" size="small" border style="width: 100%">
+
+              <div v-if="activity.changes && activity.changes.length" style="background: var(--color-bg-light); border-radius: var(--radius-lg); padding: var(--space-sm);">
+                <el-table :data="activity.changes" size="small" border style="width: 100%;">
                   <el-table-column prop="attribute_name" label="字段" width="150">
                     <template #default="{ row }">
-                      <span class="font-mono text-xs">{{ row.attribute_name }}</span>
+                      <span style="font-family: monospace; font-size: 12px;">{{ row.attribute_name }}</span>
                     </template>
                   </el-table-column>
                   <el-table-column prop="old_value" label="变更前">
                     <template #default="{ row }">
-                      <span class="text-gray-500 break-all">{{ row.old_value || '-' }}</span>
+                      <span style="color: var(--color-text-tertiary); word-break: break-all;">{{ row.old_value || '-' }}</span>
                     </template>
                   </el-table-column>
                   <el-table-column prop="new_value" label="变更后">
                     <template #default="{ row }">
-                      <span class="text-gray-900 font-medium break-all">{{ row.new_value || '-' }}</span>
+                      <span style="color: var(--color-text-dark); font-weight: 500; word-break: break-all;">{{ row.new_value || '-' }}</span>
                     </template>
                   </el-table-column>
                 </el-table>
               </div>
-              <div v-else class="text-gray-400 text-xs italic p-2">
+              <div v-else style="color: var(--color-text-tertiary); font-size: 12px; font-style: italic; padding: var(--space-sm);">
                 没有具体的字段变更记录
               </div>
             </el-card>
@@ -947,7 +929,7 @@ const handleMoreAction = (command: string) => {
 }
 
 const handleDownloadTemplate = () => {
-  window.open(`http://localhost:8000/api/v1/instances/template/${selectedModelId.value}`, '_blank')
+  window.open(`/api/v1/instances/template/${selectedModelId.value}`, '_blank')
 }
 
 const handleImport = () => {
@@ -1077,7 +1059,7 @@ const handleImportSubmit = async () => {
 }
 
 const handleExport = () => {
-  let url = `http://localhost:8000/api/v1/instances/export/${selectedModelId.value}`
+  let url = `/api/v1/instances/export/${selectedModelId.value}`
   const params = []
   
   if (filters.keyword) {
@@ -1157,3 +1139,53 @@ onMounted(() => {
   loadModels()
 })
 </script>
+
+<style scoped>
+.form-section {
+  margin-bottom: 20px;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 16px;
+  padding-left: 8px;
+  border-left: 3px solid #409EFF;
+}
+
+.model-select {
+  width: 280px;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .model-select {
+    width: 100%;
+  }
+
+  .header-actions {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .header-actions .el-select {
+    width: 100% !important;
+    margin-right: 0 !important;
+  }
+
+  .el-col {
+    width: 100% !important;
+    margin-bottom: 12px;
+  }
+
+  .form-section {
+    margin-bottom: 16px;
+  }
+
+  .section-title {
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+}
+</style>

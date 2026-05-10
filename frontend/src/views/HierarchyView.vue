@@ -39,6 +39,36 @@
         </div>
       </template>
 
+      <!-- Model Selector -->
+      <div class="model-selector-section">
+        <div class="selector-wrapper">
+          <span class="selector-label">选择资源类型：</span>
+          <el-select
+            v-model="selectedModelId"
+            placeholder="请选择资源类型"
+            filterable
+            clearable
+            class="model-select"
+            @change="handleModelChange"
+          >
+            <el-option
+              v-for="model in models"
+              :key="model.id"
+              :label="model.name"
+              :value="model.id"
+            >
+              <div class="model-option">
+                <div class="model-option-icon" :style="{ backgroundColor: model.color || '#6366f1' }">
+                  {{ model.name[0] }}
+                </div>
+                <span class="model-option-name">{{ model.name }}</span>
+                <span class="model-option-code">{{ model.code }}</span>
+              </div>
+            </el-option>
+          </el-select>
+        </div>
+      </div>
+
       <div v-if="loading" class="loading-state">
         <el-skeleton :rows="8" animated />
       </div>
@@ -262,15 +292,13 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { 
+import {
   Refresh, FolderOpened, Share, Plus, Minus, ArrowDown,
   WarningFilled, Link, Connection, Folder, Download,
-  Box, Monitor, OfficeBuilding, Cpu, Setting, 
+  Box, Monitor, OfficeBuilding, Cpu, Setting,
   Location, House, Grid, Coin, User, Document, MapLocation
 } from '@element-plus/icons-vue'
-import axios from 'axios'
-
-const api = axios.create({ baseURL: 'http://localhost:8000/api/v2' })
+import api from '@/api'
 
 const loading = ref(false)
 const parentsLoading = ref(false)
@@ -286,6 +314,10 @@ const orphanInstance = ref(null)
 const parentInstances = ref([])
 const availableParents = ref([])
 const selectedParentId = ref(null)
+
+// Model selector
+const models = ref<any[]>([])
+const selectedModelId = ref<string>('')
 
 const treeProps = {
   children: 'children',
@@ -329,13 +361,51 @@ const toggleTree = (index) => {
   expandedTrees[index] = !expandedTrees[index]
 }
 
+const loadModels = async () => {
+  try {
+    const res = await api.get('/v2/models/')
+    models.value = res.data || []
+  } catch (error) {
+    console.error('加载模型列表失败:', error)
+  }
+}
+
+const handleModelChange = async (modelId: string) => {
+  if (!modelId) {
+    // Show all
+    loadForest()
+    return
+  }
+
+  loading.value = true
+  try {
+    const res = await api.get(`/v2/hierarchy/tree/${modelId}`)
+    const data = res.data
+    forest.value = [{
+      model_id: data.root_model_id,
+      model_name: data.root_model_name,
+      model_code: '',
+      model_color: '',
+      model_icon: '',
+      nodes: data.nodes || []
+    }]
+    orphanNodes.value = []
+    expandedTrees[0] = true
+  } catch (error) {
+    console.error('加载层级视图失败:', error)
+    ElMessage.error('加载层级视图失败')
+  } finally {
+    loading.value = false
+  }
+}
+
 const loadForest = async () => {
   loading.value = true
   try {
-    const res = await api.get('/hierarchy/forest')
+    const res = await api.get('/v2/hierarchy/forest')
     forest.value = res.data.forest || []
     orphanNodes.value = res.data.orphan_nodes || []
-    
+
     forest.value.forEach((_, index) => {
       expandedTrees[index] = true
     })
@@ -378,10 +448,10 @@ const handleNodeClick = (data) => {
 const viewInstance = async (instance) => {
   currentInstance.value = instance
   detailDialogVisible.value = true
-  
+
   parentsLoading.value = true
   try {
-    const res = await api.get(`/hierarchy/parents/${instance.id}`)
+    const res = await api.get(`/v2/hierarchy/parents/${instance.id}`)
     parentInstances.value = res.data || []
   } catch (error) {
     console.error('加载父级资源失败:', error)
@@ -400,14 +470,14 @@ const showRelateDialog = async (instance) => {
   orphanInstance.value = instance
   relateDialogVisible.value = true
   selectedParentId.value = null
-  
+
   try {
-    const res = await api.get('/hierarchy/available-root-models')
+    const res = await api.get('/v2/hierarchy/available-root-models')
     const rootModels = res.data.filter(m => m.is_root_model)
-    
+
     let parents = []
     for (const model of rootModels) {
-      const instancesRes = await axios.get(`http://localhost:8000/api/v1/instances/?model_id=${model.id}`)
+      const instancesRes = await api.get('/v1/instances/', { params: { model_id: model.id } })
       if (instancesRes.data.items) {
         parents.push(...instancesRes.data.items.map(item => ({
           ...item,
@@ -427,25 +497,25 @@ const handleRelate = async () => {
     ElMessage.warning('请选择父级资源')
     return
   }
-  
+
   relating.value = true
   try {
-    const relationDefRes = await api.get('/relation-definitions/')
-    const relationDef = relationDefRes.data.find(r => 
+    const relationDefRes = await api.get('/v2/relation-definitions/')
+    const relationDef = relationDefRes.data.find(r =>
       r.source_model_id === orphanInstance.value.model_id
     )
-    
+
     if (!relationDef) {
       ElMessage.error('未找到对应的关系定义')
       return
     }
-    
-    await api.post('/instance-relations/', {
+
+    await api.post('/v2/instance-relations/', {
       relation_definition_id: relationDef.id,
       source_instance_id: orphanInstance.value.id,
       target_instance_id: selectedParentId.value
     })
-    
+
     ElMessage.success('关联成功')
     relateDialogVisible.value = false
     loadForest()
@@ -468,13 +538,13 @@ const handleNodeExport = (command, data) => {
 const exportForest = async (format) => {
   try {
     ElMessage.info('正在导出，请稍候...')
-    
-    const response = await axios.get(`http://localhost:8000/api/v2/hierarchy/export-forest`, {
+
+    const response = await api.get('/v2/hierarchy/export-forest', {
       params: { format },
       responseType: 'blob'
     })
-    
-    const blob = new Blob([response.data], { 
+
+    const blob = new Blob([response.data], {
       type: format === 'csv' ? 'text/csv;charset=utf-8' : 'application/json'
     })
     const url = window.URL.createObjectURL(blob)
@@ -485,7 +555,7 @@ const exportForest = async (format) => {
     link.click()
     document.body.removeChild(link)
     window.URL.revokeObjectURL(url)
-    
+
     ElMessage.success('导出成功')
   } catch (error) {
     console.error('导出失败:', error)
@@ -496,13 +566,13 @@ const exportForest = async (format) => {
 const exportInstance = async (instanceId, format) => {
   try {
     ElMessage.info('正在导出，请稍候...')
-    
-    const response = await axios.get(`http://localhost:8000/api/v2/hierarchy/export/${instanceId}`, {
+
+    const response = await api.get(`/v2/hierarchy/export/${instanceId}`, {
       params: { format },
       responseType: 'blob'
     })
-    
-    const blob = new Blob([response.data], { 
+
+    const blob = new Blob([response.data], {
       type: format === 'csv' ? 'text/csv;charset=utf-8' : 'application/json'
     })
     const url = window.URL.createObjectURL(blob)
@@ -513,7 +583,7 @@ const exportInstance = async (instanceId, format) => {
     link.click()
     document.body.removeChild(link)
     window.URL.revokeObjectURL(url)
-    
+
     ElMessage.success('导出成功')
   } catch (error) {
     console.error('导出失败:', error)
@@ -522,6 +592,7 @@ const exportInstance = async (instanceId, format) => {
 }
 
 onMounted(() => {
+  loadModels()
   loadForest()
 })
 </script>
@@ -872,5 +943,73 @@ onMounted(() => {
 :deep(.el-tree--highlight-current .el-tree-node.is-current > .el-tree-node__content) {
   background-color: #ecf5ff;
   border-radius: 6px;
+}
+
+.model-selector-section {
+  padding: 16px 20px;
+  background: linear-gradient(90deg, #f8fafc 0%, #fff 100%);
+  border-bottom: 1px solid #ebeef5;
+}
+
+.selector-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.selector-label {
+  font-size: 14px;
+  color: #606266;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.model-select {
+  width: 300px;
+}
+
+.model-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.model-option-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.model-option-name {
+  flex: 1;
+}
+
+.model-option-code {
+  font-size: 12px;
+  color: #909399;
+  font-family: monospace;
+}
+
+@media (max-width: 768px) {
+  .selector-wrapper {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .model-select {
+    width: 100%;
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
 }
 </style>

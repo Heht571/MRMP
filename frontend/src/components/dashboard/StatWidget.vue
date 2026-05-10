@@ -1,24 +1,26 @@
 <template>
-  <div class="h-full w-full bg-white rounded-lg shadow-sm border border-gray-100 flex flex-col justify-center items-center p-4 relative overflow-hidden group hover:border-indigo-200 transition-colors">
-    <div class="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-      <el-icon class="cursor-pointer text-gray-400 hover:text-indigo-600"><MoreFilled /></el-icon>
+  <div class="stat-widget">
+    <div class="widget-header">
+      <el-icon class="cursor-pointer more-icon hover"><MoreFilled /></el-icon>
     </div>
-    
-    <div class="text-gray-500 text-sm font-medium mb-2">{{ title }}</div>
-    
-    <div class="flex items-end gap-2">
-      <span class="text-3xl font-bold text-gray-900">{{ value }}</span>
-      <span v-if="unit" class="text-xs text-gray-400 mb-1">{{ unit }}</span>
+
+    <div class="widget-title-wrapper">
+      <span class="widget-title">{{ title }}</span>
     </div>
-    
-    <div v-if="trend" class="mt-2 flex items-center text-xs" :class="trend > 0 ? 'text-green-500' : 'text-red-500'">
+
+    <div class="widget-value-wrapper">
+      <span class="widget-value">{{ value }}</span>
+      <span v-if="unit" class="widget-unit">{{ unit }}</span>
+    </div>
+
+    <div v-if="trend" class="widget-trend" :class="trend > 0 ? 'trend-up' : 'trend-down'">
       <el-icon v-if="trend > 0"><CaretTop /></el-icon>
       <el-icon v-else><CaretBottom /></el-icon>
       <span>{{ Math.abs(trend) }}%</span>
-      <span class="text-gray-400 ml-1">较上周</span>
+      <span class="trend-label">较上周</span>
     </div>
-    
-    <div class="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+
+    <div class="widget-footer"></div>
   </div>
 </template>
 
@@ -59,3 +61,111 @@ onMounted(() => {
   loadData()
 })
 </script>
+
+<style scoped>
+.stat-widget {
+  height: 100%;
+  width: 100%;
+  background: var(--color-surface-light);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: var(--space-md);
+  position: relative;
+  overflow: hidden;
+  transition: border-color var(--transition-base);
+}
+
+.stat-widget:hover {
+  border-color: var(--color-accent);
+}
+
+.widget-header {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: var(--space-sm);
+  opacity: 0;
+  transition: opacity var(--transition-base);
+}
+
+.stat-widget:hover .widget-header {
+  opacity: 1;
+}
+
+.more-icon {
+  cursor: pointer;
+  color: var(--color-text-tertiary);
+}
+
+.more-icon:hover {
+  color: var(--color-accent);
+}
+
+.widget-title-wrapper {
+  margin-bottom: var(--space-sm);
+}
+
+.widget-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.widget-value-wrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-sm);
+}
+
+.widget-value {
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--color-text-dark);
+}
+
+.widget-unit {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  margin-bottom: 4px;
+}
+
+.widget-trend {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  margin-top: var(--space-sm);
+}
+
+.trend-up {
+  color: var(--color-success);
+}
+
+.trend-down {
+  color: var(--color-danger);
+}
+
+.trend-label {
+  color: var(--color-text-tertiary);
+  margin-left: 4px;
+}
+
+.widget-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, var(--color-accent), #a855f7);
+  opacity: 0;
+  transition: opacity var(--transition-base);
+}
+
+.stat-widget:hover .widget-footer {
+  opacity: 1;
+}
+</style>

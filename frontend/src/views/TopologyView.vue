@@ -1,12 +1,11 @@
 <template>
   <PageContainer title="资源拓扑视图" description="可视化展示资源间的关联关系">
-    <div class="h-[calc(100vh-200px)] relative bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
-      <!-- Controls -->
-      <div class="absolute top-4 left-4 z-10 flex gap-2">
+    <div class="topology-container">
+      <div class="topology-controls">
         <el-select 
           v-model="rootId" 
           placeholder="选择根节点" 
-          class="w-64"
+          class="root-select"
           filterable
           remote
           :remote-method="searchInstances"
@@ -19,74 +18,73 @@
             :label="item.name" 
             :value="item.id"
           >
-            <div class="flex items-center justify-between">
-              <span>{{ item.name }}</span>
-              <span class="text-xs text-gray-400">{{ item.code }}</span>
+            <div class="root-option">
+              <span class="root-option-name">{{ item.name }}</span>
+              <span class="root-option-code">{{ item.code }}</span>
             </div>
           </el-option>
         </el-select>
         
-        <el-input-number v-model="depth" :min="1" :max="5" @change="fetchTopology" label="深度" />
+        <el-input-number v-model="depth" :min="1" :max="5" @change="fetchTopology" controls-position="right" />
         
-        <el-button type="primary" @click="fetchTopology" :loading="loading">刷新</el-button>
+        <el-button type="primary" @click="fetchTopology" :loading="loading">
+          <el-icon><Refresh /></el-icon>
+          刷新
+        </el-button>
       </div>
 
-      <!-- Graph -->
       <VueFlow 
         v-model="elements" 
         :fit-view-on-init="true"
-        class="w-full h-full"
-        :default-viewport="{ zoom: 1.2 }"
+        class="topology-graph"
+        :default-viewport="{ zoom: 1.0 }"
         :min-zoom="0.2"
         :max-zoom="4"
       >
-        <Background pattern-color="#aaa" :gap="16" />
+        <Background pattern-color="#d0d0d0" :gap="20" />
         <Controls />
         <MiniMap />
         
         <template #node-custom="props">
-          <div class="custom-node bg-white border-2 rounded-lg p-3 shadow-md min-w-[150px]" 
-               :class="{'border-indigo-500': props.selected, 'border-gray-200': !props.selected}"
-          >
-            <div class="flex items-center gap-2 mb-2 border-b border-gray-100 pb-2">
-              <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: props.data.color }"></div>
-              <span class="font-bold text-sm truncate">{{ props.label }}</span>
+          <div class="topo-node" :class="{ 'topo-node--selected': props.selected }">
+            <div class="topo-node-header">
+              <div class="topo-node-dot" :style="{ backgroundColor: props.data.color || '#0071e3' }"></div>
+              <span class="topo-node-title">{{ props.label }}</span>
             </div>
-            <div class="text-xs text-gray-500 space-y-1">
-              <div class="flex justify-between">
-                <span>类型:</span>
-                <span class="font-medium">{{ props.data.model_name }}</span>
+            <div class="topo-node-body">
+              <div class="topo-node-row">
+                <span class="topo-node-label">类型</span>
+                <span class="topo-node-value">{{ props.data.model_name }}</span>
               </div>
-              <div class="flex justify-between">
-                <span>编码:</span>
-                <span class="font-mono">{{ props.data.code }}</span>
+              <div class="topo-node-row">
+                <span class="topo-node-label">编码</span>
+                <span class="topo-node-mono">{{ props.data.code }}</span>
               </div>
             </div>
             
-            <!-- Expand/Collapse Button -->
             <div v-if="props.data.has_more || props.data.is_expanded" 
-                 class="mt-2 pt-2 border-t border-gray-100 flex justify-center"
+                 class="topo-node-footer"
                  @click.stop
             >
-               <el-button 
-                 size="small" 
-                 :type="props.data.is_expanded ? 'default' : 'primary'" 
-                 link 
-                 :loading="props.data.loading"
-                 @click="toggleNode(props.id)"
-               >
-                 {{ props.data.is_expanded ? '收起' : `展开 (${props.data.visible_degree}/${props.data.degree})` }}
-               </el-button>
+              <el-button 
+                size="small" 
+                :type="props.data.is_expanded ? 'default' : 'primary'" 
+                link 
+                :loading="props.data.loading"
+                @click="toggleNode(props.id)"
+              >
+                {{ props.data.is_expanded ? '收起' : `展开 (${props.data.visible_degree}/${props.data.degree})` }}
+              </el-button>
             </div>
 
-            <Handle type="target" :position="Position.Top" class="w-3 h-3 !bg-gray-400" />
-            <Handle type="source" :position="Position.Bottom" class="w-3 h-3 !bg-gray-400" />
+            <Handle type="target" :position="Position.Top" class="topo-handle" />
+            <Handle type="source" :position="Position.Bottom" class="topo-handle" />
           </div>
         </template>
       </VueFlow>
       
-      <div v-if="loading" class="absolute inset-0 bg-white/80 flex items-center justify-center z-20">
-        <el-icon class="is-loading text-3xl text-indigo-600"><Loading /></el-icon>
+      <div v-if="loading" class="topology-loading">
+        <el-icon class="is-loading" :size="32"><Loading /></el-icon>
       </div>
     </div>
   </PageContainer>
@@ -100,7 +98,7 @@ import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { MiniMap } from '@vue-flow/minimap'
 import { Handle } from '@vue-flow/core'
-import { Loading } from '@element-plus/icons-vue'
+import { Loading, Refresh } from '@element-plus/icons-vue'
 import dagre from 'dagre'
 import api from '@/api'
 import '@vue-flow/core/dist/style.css'
@@ -111,13 +109,12 @@ const route = useRoute()
 const { fitView } = useVueFlow()
 
 const rootId = ref('')
-const depth = ref(2) // Default depth reduced to 2 for cleaner initial view
+const depth = ref(2)
 const loading = ref(false)
 const searching = ref(false)
 const searchResults = ref<any[]>([])
 const elements = ref<any[]>([])
 
-// Store graph data separately to support merging
 const nodesMap = ref(new Map<string, any>())
 const edgesMap = ref(new Map<string, any>())
 
@@ -134,11 +131,11 @@ const searchInstances = async (query: string) => {
 
 const getLayoutedElements = (nodes: any[], edges: any[]) => {
   const dagreGraph = new dagre.graphlib.Graph()
-  dagreGraph.setGraph({ rankdir: 'TB', nodesep: 100, ranksep: 150 })
+  dagreGraph.setGraph({ rankdir: 'TB', nodesep: 80, ranksep: 120 })
   dagreGraph.setDefaultEdgeLabel(() => ({}))
 
   nodes.forEach((node) => {
-    dagreGraph.setNode(node.id, { width: 180, height: 100 })
+    dagreGraph.setNode(node.id, { width: 200, height: 100 })
   })
 
   edges.forEach((edge) => {
@@ -152,7 +149,7 @@ const getLayoutedElements = (nodes: any[], edges: any[]) => {
       const nodeWithPosition = dagreGraph.node(node.id)
       return {
         ...node,
-        position: { x: nodeWithPosition.x - 90, y: nodeWithPosition.y - 50 },
+        position: { x: nodeWithPosition.x - 100, y: nodeWithPosition.y - 50 },
       }
     }),
     ...edges,
@@ -169,7 +166,6 @@ const fetchTopology = async () => {
   if (!rootId.value) return
   
   loading.value = true
-  // Clear existing graph when doing a full fetch
   nodesMap.value.clear()
   edgesMap.value.clear()
   
@@ -180,14 +176,10 @@ const fetchTopology = async () => {
     
     const { nodes, edges } = res.data
     
-    // Initialize nodes with refCount and is_expanded state
     nodes.forEach((n: any) => {
-      // By default, nodes loaded initially are not considered "expanded" in the UI sense
-      // unless we want to track them. But for simplicity, we treat initial load as base state.
-      // We set refCount to 1 so they are not removed by collapse operations of other nodes.
       n.data.refCount = 1
-      n.data.expandedChildren = new Set() // Store IDs of nodes expanded by this node
-      n.data.expandedEdges = new Set()    // Store IDs of edges expanded by this node
+      n.data.expandedChildren = new Set()
+      n.data.expandedEdges = new Set()
       n.data.is_expanded = false
       nodesMap.value.set(n.id, n)
     })
@@ -195,6 +187,8 @@ const fetchTopology = async () => {
     edges.forEach((e: any) => {
       e.data = e.data || {}
       e.data.refCount = 1
+      e.animated = true
+      e.style = { stroke: '#0071e3', strokeWidth: 1.5 }
       edgesMap.value.set(e.id, e)
     })
     
@@ -226,7 +220,6 @@ const collapseNode = (nodeId: string) => {
   const node = nodesMap.value.get(nodeId)
   if (!node || !node.data.is_expanded) return
 
-  // Decrement ref counts for children nodes
   node.data.expandedChildren.forEach((childId: string) => {
     const child = nodesMap.value.get(childId)
     if (child) {
@@ -237,7 +230,6 @@ const collapseNode = (nodeId: string) => {
     }
   })
   
-  // Decrement ref counts for edges
   node.data.expandedEdges.forEach((edgeId: string) => {
     const edge = edgesMap.value.get(edgeId)
     if (edge) {
@@ -248,17 +240,11 @@ const collapseNode = (nodeId: string) => {
     }
   })
 
-  // Clear expanded tracking
   node.data.expandedChildren.clear()
   node.data.expandedEdges.clear()
   
-  // Update state
   node.data.is_expanded = false
-  // Restore has_more if it was true before (logic: if we collapse, we can expand again)
-  // We assume if it was expandable, it still is.
-  // We don't change has_more here, just UI state.
   
-  // Force update map to trigger reactivity
   nodesMap.value.set(nodeId, { ...node })
   updateGraph()
 }
@@ -272,7 +258,6 @@ const expandNode = async (nodeId: string) => {
   }
 
   try {
-    // Fetch direct neighbors (depth=1) for this node
     const res = await api.get('/v2/topology/', { 
       params: { root_id: nodeId, depth: 1 } 
     })
@@ -281,13 +266,10 @@ const expandNode = async (nodeId: string) => {
     const currentNode = nodesMap.value.get(nodeId)
     if (!currentNode) return
 
-    // Initialize tracking sets if missing (defensive)
     if (!currentNode.data.expandedChildren) currentNode.data.expandedChildren = new Set()
     if (!currentNode.data.expandedEdges) currentNode.data.expandedEdges = new Set()
     
-    // Process Nodes
     nodes.forEach((n: any) => {
-      // Skip the source node itself
       if (n.id === nodeId) return
 
       let existingNode = nodesMap.value.get(n.id)
@@ -301,11 +283,9 @@ const expandNode = async (nodeId: string) => {
         n.data.is_expanded = false
         nodesMap.value.set(n.id, n)
       }
-      // Track that this node was brought in by current expansion
       currentNode.data.expandedChildren.add(n.id)
     })
     
-    // Process Edges
     edges.forEach((e: any) => {
       let existingEdge = edgesMap.value.get(e.id)
       if (existingEdge) {
@@ -315,9 +295,10 @@ const expandNode = async (nodeId: string) => {
       } else {
         e.data = e.data || {}
         e.data.refCount = 1
+        e.animated = true
+        e.style = { stroke: '#0071e3', strokeWidth: 1.5 }
         edgesMap.value.set(e.id, e)
       }
-      // Track that this edge was brought in by current expansion
       currentNode.data.expandedEdges.add(e.id)
     })
     
@@ -343,6 +324,145 @@ onMounted(() => {
   }
 })
 </script>
+
+<style scoped>
+.topology-container {
+  position: relative;
+  height: calc(100vh - 200px);
+  background: var(--color-bg-light);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.topology-controls {
+  position: absolute;
+  top: var(--space-md);
+  left: var(--space-md);
+  z-index: 10;
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+.root-select {
+  width: 260px;
+}
+
+.root-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.root-option-name {
+  font-weight: 500;
+}
+
+.root-option-code {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  font-family: monospace;
+}
+
+.topology-graph {
+  width: 100%;
+  height: 100%;
+}
+
+.topology-loading {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+
+.topo-node {
+  background: var(--color-surface-light);
+  border: 2px solid rgba(0,0,0,0.08);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  min-width: 180px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.topo-node--selected {
+  border-color: var(--color-accent);
+  box-shadow: 0 4px 20px rgba(0,113,227,0.2);
+}
+
+.topo-node-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+
+.topo-node-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.topo-node-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--color-text-dark);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topo-node-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.topo-node-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+}
+
+.topo-node-label {
+  color: var(--color-text-tertiary);
+}
+
+.topo-node-value {
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.topo-node-mono {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.topo-node-footer {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0,0,0,0.06);
+  display: flex;
+  justify-content: center;
+}
+
+.topo-handle {
+  width: 8px;
+  height: 8px;
+  background: var(--color-accent);
+  border: 2px solid white;
+}
+</style>
 
 <style>
 .vue-flow__minimap {

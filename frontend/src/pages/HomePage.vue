@@ -1,21 +1,21 @@
 <template>
-  <div class="space-y-6">
+  <div class="home-page">
     <!-- Header -->
-    <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-      <div>
-        <h1 class="text-xl font-bold text-gray-800">仪表盘</h1>
-        <p class="text-sm text-gray-500 mt-1">自定义您的专属数据视图</p>
+    <div class="page-header">
+      <div class="header-content">
+        <h1 class="page-title">仪表盘</h1>
+        <p class="page-subtitle">自定义您的专属数据视图</p>
       </div>
-      <div class="flex gap-2">
-        <el-button v-if="!isEditMode" @click="isEditMode = true" type="primary" plain class="bg-indigo-50 text-indigo-600 border-indigo-200">
-          <el-icon class="mr-1"><Edit /></el-icon> 编辑布局
+      <div class="header-actions">
+        <el-button v-if="!isEditMode" @click="isEditMode = true" type="primary">
+          <el-icon><Edit /></el-icon> 编辑布局
         </el-button>
         <template v-else>
-          <el-button @click="handleAddWidget" type="primary" class="bg-indigo-600 border-indigo-600">
-            <el-icon class="mr-1"><Plus /></el-icon> 添加组件
+          <el-button @click="handleAddWidget" type="primary">
+            <el-icon><Plus /></el-icon> 添加组件
           </el-button>
-          <el-button @click="saveLayout" type="success" class="bg-green-600 border-green-600">
-            <el-icon class="mr-1"><Check /></el-icon> 保存
+          <el-button @click="saveLayout" type="success">
+            <el-icon><Check /></el-icon> 保存
           </el-button>
           <el-button @click="cancelEdit">取消</el-button>
         </template>
@@ -23,26 +23,27 @@
     </div>
 
     <!-- Dashboard Grid -->
-    <div class="min-h-[600px] relative bg-gray-50/50 rounded-xl border-2 border-dashed border-gray-200 p-4" :class="{ 'border-indigo-300 bg-indigo-50/30': isEditMode }">
+    <div class="dashboard-container" :class="{ 'edit-mode': isEditMode }">
       
-      <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-white/50 z-10">
-        <el-icon class="is-loading text-3xl text-indigo-500"><Loading /></el-icon>
+      <div v-if="loading" class="loading-overlay">
+        <el-icon class="is-loading loading-icon"><Loading /></el-icon>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="dashboard-grid">
         <div 
           v-for="widget in widgets" 
           :key="widget.id"
-          class="relative group transition-all duration-300"
-          :class="[
-            getWidgetClass(widget),
-            isEditMode ? 'cursor-move ring-2 ring-transparent hover:ring-indigo-400' : ''
-          ]"
+          class="widget-wrapper"
+          :class="getWidgetClass(widget)"
         >
           <!-- Edit Actions -->
-          <div v-if="isEditMode" class="absolute top-2 right-2 z-20 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <el-button circle size="small" type="primary" @click="editWidget(widget)"><el-icon><Edit /></el-icon></el-button>
-            <el-button circle size="small" type="danger" @click="removeWidget(widget)"><el-icon><Delete /></el-icon></el-button>
+          <div v-if="isEditMode" class="widget-actions">
+            <el-button circle size="small" type="primary" @click="editWidget(widget)">
+              <el-icon><Edit /></el-icon>
+            </el-button>
+            <el-button circle size="small" type="danger" @click="removeWidget(widget)">
+              <el-icon><Delete /></el-icon>
+            </el-button>
           </div>
 
           <!-- Widget Content -->
@@ -51,18 +52,17 @@
             :title="widget.name" 
             :config="widget.config" 
             :widget-id="widget.id"
-            class="h-full"
           />
         </div>
 
         <!-- Add Button Placeholder -->
         <div 
           v-if="isEditMode" 
-          class="h-40 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-gray-400 cursor-pointer hover:border-indigo-500 hover:text-indigo-500 hover:bg-indigo-50 transition-all"
+          class="add-widget-placeholder"
           @click="handleAddWidget"
         >
-          <el-icon class="text-3xl mb-2"><Plus /></el-icon>
-          <span class="text-sm">添加新组件</span>
+          <el-icon class="add-icon"><Plus /></el-icon>
+          <span class="add-text">添加新组件</span>
         </div>
       </div>
       
@@ -75,15 +75,14 @@
       :title="editingWidget?.id ? '编辑组件' : '添加组件'" 
       width="600px" 
       destroy-on-close
-      class="rounded-xl"
     >
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="100px" class="py-4">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="100px" class="widget-form">
         <el-form-item label="组件名称" prop="name">
           <el-input v-model="form.name" placeholder="请输入组件标题" />
         </el-form-item>
         
         <el-form-item label="组件类型" prop="type">
-          <el-select v-model="form.type" placeholder="选择类型" class="w-full">
+          <el-select v-model="form.type" placeholder="选择类型" class="full-width">
             <el-option label="统计数值 (Stat)" value="stat" />
             <el-option label="图表 (Chart)" value="chart" />
             <el-option label="列表 (List)" value="list" />
@@ -93,7 +92,7 @@
         <el-divider content-position="left">数据配置</el-divider>
         
         <el-form-item label="数据源模型" prop="config.model_id">
-          <el-select v-model="form.config.model_id" placeholder="选择模型" class="w-full" filterable>
+          <el-select v-model="form.config.model_id" placeholder="选择模型" class="full-width" filterable>
             <el-option v-for="m in models" :key="m.id" :label="m.name" :value="m.id" />
           </el-select>
         </el-form-item>
@@ -115,7 +114,7 @@
             </el-radio-group>
           </el-form-item>
           <el-form-item label="聚合方式">
-            <el-select v-model="form.config.aggregation" class="w-full">
+            <el-select v-model="form.config.aggregation" class="full-width">
               <el-option label="计数 (Count)" value="count" />
               <el-option label="求和 (Sum)" value="sum" />
             </el-select>
@@ -124,7 +123,7 @@
             <el-select 
               v-model="form.config.dimension" 
               placeholder="选择统计维度" 
-              class="w-full"
+              class="full-width"
               filterable
               allow-create
             >
@@ -140,11 +139,11 @@
 
         <el-form-item label="宽/高 (Grid)">
            <el-col :span="11">
-             <el-input-number v-model="form.layout.w" :min="1" :max="4" label="宽" class="w-full" />
+             <el-input-number v-model="form.layout.w" :min="1" :max="4" label="宽" class="full-width" />
            </el-col>
            <el-col :span="2" class="text-center">-</el-col>
            <el-col :span="11">
-             <el-input-number v-model="form.layout.h" :min="1" :max="4" label="高" class="w-full" />
+             <el-input-number v-model="form.layout.h" :min="1" :max="4" label="高" class="full-width" />
            </el-col>
         </el-form-item>
       </el-form>
@@ -225,14 +224,16 @@ const getWidgetClass = (widget: any) => {
   const w = widget.layout?.w || 1
   const h = widget.layout?.h || 1
   
-  // Tailwind grid classes mapping
-  const colSpan = w === 4 ? 'col-span-4' : w === 2 ? 'md:col-span-2' : 'col-span-1'
-  const rowSpan = h > 1 ? `row-span-${h}` : ''
+  // Width classes
+  const widthClass = w === 4 ? 'widget-width-full' : w === 2 ? 'widget-width-half' : 'widget-width-quarter'
   
-  // Height calculation
-  const heightClass = h === 2 ? 'h-80' : h === 3 ? 'h-96' : 'h-40'
+  // Height classes  
+  const heightClass = h === 2 ? 'widget-height-lg' : h === 3 ? 'widget-height-xl' : 'widget-height-md'
   
-  return `${colSpan} ${rowSpan} ${heightClass}`
+  // Edit mode class
+  const editClass = isEditMode.value ? 'widget-edit-mode' : ''
+  
+  return `${widthClass} ${heightClass} ${editClass}`
 }
 
 const loadWidgets = async () => {
@@ -321,7 +322,7 @@ const saveLayout = () => {
 
 const cancelEdit = () => {
   isEditMode.value = false
-  loadWidgets() // Revert changes
+  loadWidgets()
 }
 
 onMounted(() => {
@@ -329,3 +330,198 @@ onMounted(() => {
   loadModels()
 })
 </script>
+
+<style scoped lang="scss">
+.home-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+// --- Page Header ---
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--color-surface-light);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-xl);
+}
+
+.header-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text-dark);
+  margin: 0;
+}
+
+.page-subtitle {
+  font-size: 14px;
+  color: var(--color-text-tertiary);
+  margin-top: var(--space-xs);
+}
+
+.header-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+// --- Dashboard Container ---
+.dashboard-container {
+  min-height: 600px;
+  position: relative;
+  background: var(--color-bg-light);
+  border-radius: var(--radius-xl);
+  padding: var(--space-md);
+
+  &.edit-mode {
+    border: 2px dashed var(--color-accent);
+    background: rgba(0, 113, 227, 0.03);
+  }
+}
+
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.8);
+  z-index: 10;
+
+  .loading-icon {
+    font-size: 32px;
+    color: var(--color-accent);
+  }
+}
+
+// --- Dashboard Grid ---
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-md);
+}
+
+// --- Widget Sizes ---
+.widget-wrapper {
+  position: relative;
+  transition: all var(--transition-base);
+
+  &.widget-width-full {
+    grid-column: span 4;
+  }
+
+  &.widget-width-half {
+    grid-column: span 2;
+  }
+
+  &.widget-width-quarter {
+    grid-column: span 1;
+  }
+
+  &.widget-height-md {
+    height: 160px;
+  }
+
+  &.widget-height-lg {
+    height: 320px;
+  }
+
+  &.widget-height-xl {
+    height: 384px;
+  }
+
+  &.widget-edit-mode {
+    cursor: move;
+
+    &:hover {
+      .widget-actions {
+        opacity: 1;
+      }
+    }
+  }
+}
+
+.widget-actions {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  z-index: 20;
+  display: flex;
+  gap: var(--space-xs);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+// --- Add Widget Placeholder ---
+.add-widget-placeholder {
+  height: 160px;
+  border: 2px dashed var(--color-text-tertiary);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+    background: rgba(0, 113, 227, 0.05);
+  }
+
+  .add-icon {
+    font-size: 32px;
+    margin-bottom: var(--space-sm);
+  }
+
+  .add-text {
+    font-size: 14px;
+  }
+}
+
+// --- Widget Form ---
+.widget-form {
+  padding: var(--space-md) 0;
+
+  .full-width {
+    width: 100%;
+  }
+}
+
+// --- Responsive ---
+@media (max-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .widget-width-full {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-md);
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .widget-width-full,
+  .widget-width-half,
+  .widget-width-quarter {
+    grid-column: span 1;
+  }
+}
+</style>

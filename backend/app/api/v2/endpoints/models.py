@@ -1,8 +1,8 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_, delete
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from app.db.database import get_async_db
 from app.models.meta_model_v2 import (
@@ -17,6 +17,7 @@ router = APIRouter()
 
 
 async def get_model_with_attributes(db: AsyncSession, model_id: UUID) -> Optional[Model]:
+    """Fetch model with all related attributes loaded."""
     result = await db.execute(
         select(Model)
         .options(
@@ -30,7 +31,7 @@ async def get_model_with_attributes(db: AsyncSession, model_id: UUID) -> Optiona
     return result.scalar_one_or_none()
 
 
-def model_to_response(model: Model) -> dict:
+def model_to_response(model: Model) -> Dict[str, Any]:
     attributes = []
     for ma in model.model_attributes:
         attr_dict = {
@@ -85,6 +86,7 @@ def model_to_response(model: Model) -> dict:
         "icon": model.icon,
         "color": model.color,
         "is_active": model.is_active,
+        "is_root_model": model.is_root_model,
         "unique_key_id": model.unique_key_id,
         "show_key_id": model.show_key_id,
         "unique_key": unique_key,
@@ -143,6 +145,7 @@ async def create_model(
         category=model_in.category,
         icon=model_in.icon,
         color=model_in.color,
+        is_root_model=model_in.is_root_model,
         unique_key_id=model_in.unique_key_id,
         show_key_id=model_in.show_key_id,
     )

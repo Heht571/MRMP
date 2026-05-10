@@ -5,23 +5,28 @@
         <div class="card-header">
           <span>实例关系映射</span>
           <div class="header-actions">
-            <el-select v-model="selectedRelationDef" placeholder="选择关系定义" style="width: 250px; margin-right: 12px;" clearable>
-              <el-option 
-                v-for="rel in relationDefinitions" 
-                :key="rel.id" 
-                :label="`${rel.name} (${rel.source_model?.name} -> ${rel.target_model?.name})`" 
+            <el-select v-model="selectedRelationDef" placeholder="全部关系定义" style="width: 280px; margin-right: 12px;" clearable @change="handleRelationDefChange">
+              <el-option
+                v-for="rel in relationDefinitions"
+                :key="rel.id"
+                :label="`${rel.name} (${rel.source_model?.name} → ${rel.target_model?.name})`"
                 :value="rel.id"
               />
             </el-select>
-            <el-button type="primary" @click="handleAdd" :disabled="!selectedRelationDef">
+            <el-button type="primary" @click="handleAdd">
               <el-icon><Plus /></el-icon>
-              新增映射
+              新增��射
             </el-button>
           </div>
         </div>
       </template>
 
       <el-table :data="instanceRelations" v-loading="loading" stripe style="width: 100%">
+        <el-table-column label="关系定义" width="180">
+          <template #default="{ row }">
+            <el-tag size="small" type="info">{{ row.relation_definition_name || '未知' }}</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="源实例(子)" min-width="150">
           <template #default="{ row }">
             <div>
@@ -30,7 +35,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="关系" width="100" align="center">
+        <el-table-column label="关系" width="80" align="center">
           <template #default>
             <el-icon><Right /></el-icon>
           </template>
@@ -81,8 +86,16 @@
         <el-form-item label="关系定义">
           <el-input :value="currentRelationDef?.name" disabled />
         </el-form-item>
-        <el-alert 
-          :title="`映射说明: ${currentRelationDef?.source_model?.name || '源模型'} ${currentRelationDef?.relation_label || '->'} ${currentRelationDef?.target_model?.name || '目标模型'}`"
+        <el-alert
+          v-if="currentRelationDef?.relation_type === 'connect'"
+          title="双向关系：创建'A连接B'会自动创建'B连接A'，删除时也会同步删除反向关系"
+          type="success"
+          :closable="false"
+          style="margin-bottom: 16px;"
+        />
+        <el-alert
+          v-else
+          :title="`映射说明: ${currentRelationDef?.source_model?.name || '源模型'} ${currentRelationDef?.relation_label || '→'} ${currentRelationDef?.target_model?.name || '目标模型'}`"
           type="info"
           :closable="false"
           style="margin-bottom: 16px;"
@@ -147,9 +160,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Right } from '@element-plus/icons-vue'
-import axios from 'axios'
-
-const api = axios.create({ baseURL: 'http://localhost:8000/api/v2' })
+import api from '@/api'
 
 const loading = ref(false)
 const instanceRelations = ref([])
@@ -195,28 +206,29 @@ const formatDate = (dateStr) => {
 
 const loadRelationDefinitions = async () => {
   try {
-    const res = await api.get('/relation-definitions/', { params: { status: 'active' } })
+    const res = await api.get('/v2/relation-definitions/', { params: { status: 'active' } })
     relationDefinitions.value = res.data
   } catch (error) {
     console.error('加载关系定义失败:', error)
   }
 }
 
+const handleRelationDefChange = () => {
+  currentPage.value = 1
+  loadInstanceRelations()
+}
+
 const loadInstanceRelations = async () => {
-  if (!selectedRelationDef.value) {
-    instanceRelations.value = []
-    return
-  }
-  
   loading.value = true
   try {
-    const res = await api.get('/instance-relations/', {
-      params: {
-        relation_definition_id: selectedRelationDef.value,
-        skip: (currentPage.value - 1) * pageSize.value,
-        limit: pageSize.value
-      }
-    })
+    const params: any = {
+      skip: (currentPage.value - 1) * pageSize.value,
+      limit: pageSize.value
+    }
+    if (selectedRelationDef.value) {
+      params.relation_definition_id = selectedRelationDef.value
+    }
+    const res = await api.get('/v2/instance-relations/', { params })
     instanceRelations.value = res.data
     total.value = res.data.length
   } catch (error) {
@@ -246,7 +258,7 @@ const loadSourceInstances = async () => {
 
 const loadTargetInstances = async () => {
   if (!currentRelationDef.value?.target_model_id) return
-  
+
   try {
     const res = await api.get('/instances/', {
       params: {
@@ -261,17 +273,16 @@ const loadTargetInstances = async () => {
   }
 }
 
-watch(selectedRelationDef, () => {
-  currentPage.value = 1
-  loadInstanceRelations()
-})
-
 const handlePageChange = (page) => {
   currentPage.value = page
   loadInstanceRelations()
 }
 
 const handleAdd = async () => {
+  if (!selectedRelationDef.value) {
+    ElMessage.warning('请先选择一个关系定义')
+    return
+  }
   Object.assign(form, {
     source_instance_id: null,
     target_instance_id: null,
@@ -279,7 +290,7 @@ const handleAdd = async () => {
   })
   newAttrKey.value = ''
   newAttrValue.value = ''
-  
+
   await Promise.all([loadSourceInstances(), loadTargetInstances()])
   dialogVisible.value = true
 }
@@ -287,7 +298,7 @@ const handleAdd = async () => {
 const handleDelete = async (row) => {
   try {
     await ElMessageBox.confirm('确定要删除该映射关系吗？', '提示', { type: 'warning' })
-    await api.delete(`/instance-relations/${row.id}`)
+    await api.delete(`/v2/instance-relations/${row.id}`)
     ElMessage.success('删除成功')
     loadInstanceRelations()
   } catch (error) {
@@ -315,7 +326,7 @@ const handleSubmit = async () => {
     await formRef.value.validate()
     submitting.value = true
     
-    await api.post('/instance-relations/', {
+    await api.post('/v2/instance-relations/', {
       relation_definition_id: selectedRelationDef.value,
       ...form
     })
@@ -333,6 +344,7 @@ const handleSubmit = async () => {
 
 onMounted(() => {
   loadRelationDefinitions()
+  loadInstanceRelations()
 })
 </script>
 

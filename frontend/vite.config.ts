@@ -8,6 +8,22 @@ import traeBadgePlugin from 'vite-plugin-trae-solo-badge'
 export default defineConfig({
   build: {
     sourcemap: 'hidden',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'element-plus': ['element-plus'],
+          'vue-echarts': ['echarts', 'vue-echarts'],
+          'vue-flow': [
+            '@vue-flow/core',
+            '@vue-flow/background',
+            '@vue-flow/controls',
+            '@vue-flow/minimap'
+          ],
+          'grid-layout': ['vue-grid-layout', 'vuedraggable'],
+          'vendor': ['vue', 'vue-router', 'pinia', 'axios']
+        }
+      }
+    }
   },
   plugins: [
     vue(),
@@ -24,13 +40,14 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'), // ✅ 定义 @ = src
+      '@': path.resolve(__dirname, './src'),
     },
   },
   server: {
+    port: 8080,
     proxy: {
       '/api': {
-        target: 'http://localhost:8001',
+        target: 'http://localhost:8000',
         changeOrigin: true,
       },
     },

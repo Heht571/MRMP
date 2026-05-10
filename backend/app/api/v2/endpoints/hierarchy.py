@@ -11,7 +11,7 @@ from app.db.database import get_async_db
 from app.models.relation_engine import RelationDefinition, InstanceRelation, RelationDefinitionStatus
 from app.models.instance import Instance
 from app.models.meta_model_v2 import Model
-from app.schemas.relation_engine import HierarchyNode, HierarchyTreeResponse
+from app.schemas.relation_engine import HierarchyNode, HierarchyTreeResponse, RelationType
 
 router = APIRouter()
 
@@ -26,45 +26,56 @@ async def build_child_tree(
 ) -> List[Dict[str, Any]]:
     if current_depth >= max_depth:
         return []
-    
+
     if visited is None:
         visited = set()
-    
+
+    # 查找层级关系(contain)，只查询作为父模型的source方向
     child_relation_defs = await db.execute(
         select(RelationDefinition)
         .where(
-            RelationDefinition.target_model_id == parent_model_id,
-            RelationDefinition.is_hierarchical == True,
-            RelationDefinition.status == RelationDefinitionStatus.ACTIVE
+            RelationDefinition.relation_type == RelationType.CONTAIN,
+            RelationDefinition.status == RelationDefinitionStatus.ACTIVE,
+            RelationDefinition.source_model_id == parent_model_id
         )
     )
     child_relations = child_relation_defs.scalars().all()
-    
+
     if not child_relations:
         return []
-    
+
+    # Find instance relations where parent is source (contain: source=父, target=子)
     instance_relations = await db.execute(
         select(InstanceRelation)
         .options(
             selectinload(InstanceRelation.source_instance).selectinload(Instance.model),
+            selectinload(InstanceRelation.target_instance).selectinload(Instance.model),
             selectinload(InstanceRelation.relation_definition)
         )
         .where(
-            InstanceRelation.target_instance_id == parent_instance_id,
+            InstanceRelation.source_instance_id == parent_instance_id,
             InstanceRelation.relation_definition_id.in_([r.id for r in child_relations])
         )
     )
     child_instance_relations = instance_relations.scalars().all()
-    
+
     nodes = []
     for ir in child_instance_relations:
-        instance = ir.source_instance
+        # 包含关系：source 是父，target 是子
+        instance = ir.target_instance
+        if not instance:
+            continue
         if instance.id in visited:
             continue
-        
+
+        # 去重
+        existing_ids = [n['id'] for n in nodes]
+        if instance.id in existing_ids:
+            continue
+
         visited_copy = visited.copy()
         visited_copy.add(instance.id)
-        
+
         node = {
             "id": instance.id,
             "name": instance.name,
@@ -75,7 +86,7 @@ async def build_child_tree(
             "model_color": instance.model.color if instance.model else None,
             "model_icon": instance.model.icon if instance.model else None,
             "data": instance.data or {},
-            "relation_name": ir.relation_definition.relation_label if ir.relation_definition else None,
+            "relation_name": "包含",
             "children": await build_child_tree(
                 db,
                 instance.id,
@@ -86,88 +97,85 @@ async def build_child_tree(
             )
         }
         nodes.append(node)
-    
+
     return nodes
 
 
 async def get_root_models(db: AsyncSession) -> List[Dict]:
     result = await db.execute(
-        select(Model).where(Model.is_active == True)
+        select(Model).where(
+            Model.is_active == True,
+            Model.is_root_model == True  # Use explicit is_root_model flag
+        )
     )
     models = result.scalars().all()
-    
+
     root_models = []
     for model in models:
-        parent_relation = await db.execute(
-            select(RelationDefinition).where(
-                RelationDefinition.source_model_id == model.id,
-                RelationDefinition.is_hierarchical == True,
-                RelationDefinition.status == RelationDefinitionStatus.ACTIVE
-            ).limit(1)
+        instance_count = await db.execute(
+            select(func.count()).select_from(Instance).where(Instance.model_id == model.id)
         )
-        has_parent_relation = parent_relation.scalar_one_or_none() is not None
-        
-        if not has_parent_relation:
-            instance_count = await db.execute(
-                select(func.count()).select_from(Instance).where(Instance.model_id == model.id)
-            )
-            count = instance_count.scalar() or 0
-            
-            if count > 0:
-                root_models.append({
-                    "id": model.id,
-                    "name": model.name,
-                    "code": model.code,
-                    "category": model.category,
-                    "icon": model.icon,
-                    "color": model.color,
-                    "instance_count": count,
-                    "is_root_model": True,
-                })
-    
+        count = instance_count.scalar() or 0
+
+        if count > 0:
+            root_models.append({
+                "id": model.id,
+                "name": model.name,
+                "code": model.code,
+                "category": model.category,
+                "icon": model.icon,
+                "color": model.color,
+                "instance_count": count,
+                "is_root_model": True,
+            })
+
     return root_models
 
 
 async def get_orphan_instances(db: AsyncSession) -> List[Dict]:
     result = await db.execute(
-        select(Model).where(Model.is_active == True)
+        select(Model).where(
+            Model.is_active == True,
+            Model.is_root_model == False
+        )
     )
     models = result.scalars().all()
-    
+
     orphan_nodes = []
     for model in models:
         parent_relation = await db.execute(
             select(RelationDefinition).where(
-                RelationDefinition.source_model_id == model.id,
-                RelationDefinition.is_hierarchical == True,
+                RelationDefinition.target_model_id == model.id,
+                RelationDefinition.relation_type == RelationType.CONTAIN,
                 RelationDefinition.status == RelationDefinitionStatus.ACTIVE
             ).limit(1)
         )
         has_parent_relation = parent_relation.scalar_one_or_none() is not None
-        
+
         if has_parent_relation:
             linked_instance_ids = await db.execute(
-                select(InstanceRelation.source_instance_id).where(
+                select(InstanceRelation.target_instance_id).where(
                     InstanceRelation.relation_definition_id.in_(
                         select(RelationDefinition.id).where(
-                            RelationDefinition.source_model_id == model.id,
-                            RelationDefinition.is_hierarchical == True
+                            RelationDefinition.target_model_id == model.id,
+                            RelationDefinition.relation_type == RelationType.CONTAIN,
+                            RelationDefinition.status == RelationDefinitionStatus.ACTIVE
                         )
                     )
                 )
             )
             linked_ids = [row[0] for row in linked_instance_ids.fetchall()]
-            
+
             orphan_query = select(Instance).options(
                 selectinload(Instance.model)
             ).where(Instance.model_id == model.id)
-            
+
             if linked_ids:
                 orphan_query = orphan_query.where(Instance.id.not_in(linked_ids))
-            
+
             orphans = await db.execute(orphan_query)
             orphan_instances = orphans.scalars().unique().all()
-            
+
             for instance in orphan_instances:
                 orphan_nodes.append({
                     "id": instance.id,
@@ -183,7 +191,7 @@ async def get_orphan_instances(db: AsyncSession) -> List[Dict]:
                     "is_orphan": True,
                     "children": []
                 })
-    
+
     return orphan_nodes
 
 
@@ -193,19 +201,30 @@ async def get_hierarchy_forest(
     db: AsyncSession = Depends(get_async_db)
 ):
     root_models = await get_root_models(db)
-    
+
     forest = []
-    
+
     for root_model in root_models:
+        # Get ALL instances of this root model (not just those with relations)
         root_instances = await db.execute(
             select(Instance)
             .options(selectinload(Instance.model))
             .where(Instance.model_id == root_model["id"])
         )
         instances = root_instances.scalars().unique().all()
-        
+
         tree_nodes = []
         for instance in instances:
+            # Build children ONLY if there are actual instance relations
+            children = await build_child_tree(
+                db,
+                instance.id,
+                instance.model_id,
+                max_depth,
+                0,
+                {instance.id}
+            )
+
             node = {
                 "id": instance.id,
                 "name": instance.name,
@@ -217,17 +236,10 @@ async def get_hierarchy_forest(
                 "model_icon": instance.model.icon if instance.model else None,
                 "data": instance.data or {},
                 "relation_name": None,
-                "children": await build_child_tree(
-                    db,
-                    instance.id,
-                    instance.model_id,
-                    max_depth,
-                    0,
-                    {instance.id}
-                )
+                "children": children
             }
             tree_nodes.append(node)
-        
+
         if tree_nodes:
             forest.append({
                 "model_id": root_model["id"],
@@ -237,9 +249,9 @@ async def get_hierarchy_forest(
                 "model_icon": root_model["icon"],
                 "nodes": tree_nodes
             })
-    
+
     orphan_nodes = await get_orphan_instances(db)
-    
+
     return {
         "forest": forest,
         "orphan_nodes": orphan_nodes,
@@ -260,48 +272,27 @@ async def get_hierarchy_tree(
     root_model = model.scalar_one_or_none()
     if not root_model:
         raise HTTPException(status_code=404, detail="模型不存在")
-    
-    parent_relation = await db.execute(
-        select(RelationDefinition).where(
-            RelationDefinition.source_model_id == model_id,
-            RelationDefinition.is_hierarchical == True,
-            RelationDefinition.status == RelationDefinitionStatus.ACTIVE
-        ).limit(1)
+
+    # Get ALL instances of this model (not just those with relations)
+    result = await db.execute(
+        select(Instance)
+        .options(selectinload(Instance.model))
+        .where(Instance.model_id == model_id)
     )
-    has_parent_relation = parent_relation.scalar_one_or_none() is not None
-    
-    if has_parent_relation:
-        linked_instance_ids = await db.execute(
-            select(InstanceRelation.source_instance_id).where(
-                InstanceRelation.relation_definition_id.in_(
-                    select(RelationDefinition.id).where(
-                        RelationDefinition.source_model_id == model_id,
-                        RelationDefinition.is_hierarchical == True
-                    )
-                )
-            )
-        )
-        linked_ids = [row[0] for row in linked_instance_ids.fetchall()]
-        
-        query = select(Instance).options(
-            selectinload(Instance.model)
-        ).where(Instance.model_id == model_id)
-        
-        if linked_ids:
-            query = query.where(Instance.id.not_in(linked_ids))
-        
-        result = await db.execute(query)
-        root_instances = result.scalars().unique().all()
-    else:
-        result = await db.execute(
-            select(Instance)
-            .options(selectinload(Instance.model))
-            .where(Instance.model_id == model_id)
-        )
-        root_instances = result.scalars().unique().all()
-    
+    root_instances = result.scalars().unique().all()
+
     nodes = []
     for instance in root_instances:
+        # Build children ONLY if there are actual instance relations
+        children = await build_child_tree(
+            db,
+            instance.id,
+            instance.model_id,
+            max_depth,
+            0,
+            {instance.id}
+        )
+
         node = {
             "id": instance.id,
             "name": instance.name,
@@ -313,14 +304,7 @@ async def get_hierarchy_tree(
             "model_icon": instance.model.icon if instance.model else None,
             "data": instance.data or {},
             "relation_name": None,
-            "children": await build_child_tree(
-                db,
-                instance.id,
-                instance.model_id,
-                max_depth,
-                0,
-                {instance.id}
-            )
+            "children": children
         }
         nodes.append(node)
     
@@ -405,26 +389,20 @@ async def get_available_root_models(
 ):
     result = await db.execute(
         select(Model)
-        .where(Model.is_active == True)
+        .where(
+            Model.is_active == True,
+            Model.is_root_model == True  # Only models marked as root
+        )
     )
     models = result.scalars().unique().all()
-    
+
     root_models = []
     for model in models:
-        parent_relation = await db.execute(
-            select(RelationDefinition).where(
-                RelationDefinition.source_model_id == model.id,
-                RelationDefinition.is_hierarchical == True,
-                RelationDefinition.status == RelationDefinitionStatus.ACTIVE
-            ).limit(1)
-        )
-        has_parent_relation = parent_relation.scalar_one_or_none() is not None
-        
         instance_count = await db.execute(
             select(func.count()).select_from(Instance).where(Instance.model_id == model.id)
         )
         count = instance_count.scalar() or 0
-        
+
         if count > 0:
             root_models.append({
                 "id": model.id,
@@ -434,10 +412,9 @@ async def get_available_root_models(
                 "icon": model.icon,
                 "color": model.color,
                 "instance_count": count,
-                "has_parent_relation": has_parent_relation,
-                "is_root_model": not has_parent_relation,
+                "is_root_model": True,
             })
-    
+
     return root_models
 
 

@@ -135,13 +135,26 @@ async def create_relation_definition(
     if relation_in.source_model_id == relation_in.target_model_id:
         raise HTTPException(status_code=400, detail="源模型和目标模型不能相同")
 
+    rel_type = relation_in.relation_type.value
+    is_contain = rel_type == "contain"
+    
+    relation_label = "包含" if is_contain else "连接"
+    inverse_label = "被包含" if is_contain else "连接于"
+    
+    inverse_mapping = {
+        "one_to_one": "one_to_one",
+        "one_to_many": "many_to_one",
+        "many_to_one": "one_to_many",
+        "many_to_many": "many_to_many",
+    }
+
     relation = RelationDefinition(
         name=relation_in.name,
         code=relation_in.code,
         description=relation_in.description,
         source_model_id=relation_in.source_model_id,
         target_model_id=relation_in.target_model_id,
-        relation_type=relation_in.relation_type.value,
+        relation_type=rel_type,
         mapping_type=relation_in.mapping_type,
         min_cardinality=relation_in.min_cardinality,
         max_cardinality=relation_in.max_cardinality,
@@ -149,6 +162,28 @@ async def create_relation_definition(
         status=RelationDefinitionStatus.ACTIVE,
     )
     db.add(relation)
+
+    inverse_code = f"{relation_in.code}__inverse"
+    existed_inverse = await db.execute(
+        select(RelationDefinition).where(RelationDefinition.code == inverse_code)
+    )
+    if not existed_inverse.scalar_one_or_none():
+        inverse_name = f"{relation_in.name}（反向）"
+        inverse_relation = RelationDefinition(
+            name=inverse_name,
+            code=inverse_code,
+            description=f"{relation_in.description or ''}的反向关系",
+            source_model_id=relation_in.target_model_id,
+            target_model_id=relation_in.source_model_id,
+            relation_type=rel_type,
+            mapping_type=MappingType(inverse_mapping.get(relation_in.mapping_type.value, "many_to_one")),
+            min_cardinality=0,
+            max_cardinality=-1,
+            sort_order=relation_in.sort_order + 1,
+            status=RelationDefinitionStatus.ACTIVE,
+        )
+        db.add(inverse_relation)
+
     await db.commit()
 
     relation = await get_relation_definition_with_models(db, relation.id)
@@ -193,6 +228,14 @@ async def delete_relation_definition(
     relation = await get_relation_definition_with_models(db, relation_id)
     if not relation:
         raise HTTPException(status_code=404, detail="关系定义不存在")
+    
+    inverse_code = f"{relation.code}__inverse"
+    inverse_result = await db.execute(
+        select(RelationDefinition).where(RelationDefinition.code == inverse_code)
+    )
+    inverse_relation = inverse_result.scalar_one_or_none()
+    if inverse_relation:
+        await db.delete(inverse_relation)
     
     await db.delete(relation)
     await db.commit()

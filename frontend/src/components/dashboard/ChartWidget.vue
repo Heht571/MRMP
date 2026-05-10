@@ -1,17 +1,17 @@
 <template>
-  <div class="h-full w-full flex flex-col bg-white rounded-lg shadow-sm overflow-hidden">
-    <div class="px-4 py-3 border-b border-gray-100 flex justify-between items-center">
-      <h3 class="font-medium text-gray-700">{{ title }}</h3>
-      <div class="flex gap-2">
+  <div class="chart-widget">
+    <div class="widget-header">
+      <h3 class="widget-title">{{ title }}</h3>
+      <div class="header-actions">
         <slot name="actions"></slot>
       </div>
     </div>
-    <div class="flex-1 p-4 relative min-h-0">
+    <div class="widget-content">
       <v-chart class="chart" :option="chartOption" autoresize />
-      <div v-if="loading" class="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
-        <el-icon class="is-loading text-indigo-500 text-2xl"><Loading /></el-icon>
+      <div v-if="loading" class="loading-overlay">
+        <el-icon class="is-loading loading-icon"><Loading /></el-icon>
       </div>
-      <div v-if="!loading && !hasData" class="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
+      <div v-if="!loading && !hasData" class="empty-overlay">
         暂无数据
       </div>
     </div>
@@ -166,6 +166,69 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.chart-widget {
+  height: 100%;
+  width: 100%;
+  background: var(--color-surface-light);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.widget-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.widget-title {
+  font-weight: 500;
+  color: var(--color-text-dark);
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.widget-content {
+  flex: 1;
+  padding: var(--space-md);
+  position: relative;
+  min-height: 0;
+}
+
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.loading-icon {
+  font-size: 24px;
+  color: var(--color-accent);
+}
+
+.empty-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
+  font-size: 14px;
+}
+
 .chart {
   height: 100%;
   width: 100%;

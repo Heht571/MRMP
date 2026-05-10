@@ -15,25 +15,23 @@
       :header-cell-style="{ background: '#f8fafc', color: '#475569', fontWeight: '600' }"
       :row-class-name="'hover:bg-gray-50 transition-colors'"
     >
-      <el-table-column label="模型名称" min-width="180">
+      <el-table-column label="模型名称" min-width="200">
         <template #default="{ row }">
-          <div class="flex items-center gap-3">
-            <div 
-              class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm"
-              :style="{ backgroundColor: row.color || '#6366f1' }"
-            >
+          <div class="model-cell">
+            <div class="model-icon" :style="{ backgroundColor: row.color || '#6366f1' }">
               {{ (row.name || '?')[0].toUpperCase() }}
             </div>
-            <div class="flex flex-col">
-              <span class="font-medium text-gray-900">{{ row.name }}</span>
-              <span class="text-xs text-gray-400">{{ row.code }}</span>
+            <div class="model-info">
+              <span class="model-name">{{ row.name }}</span>
+              <span class="model-code">{{ row.code }}</span>
             </div>
           </div>
         </template>
       </el-table-column>
-      <el-table-column prop="category" label="分类" width="120">
+      <el-table-column label="根模型" width="90" align="center">
         <template #default="{ row }">
-          <el-tag size="small" effect="plain" type="info" class="capitalize">{{ row.category }}</el-tag>
+          <el-tag v-if="row.is_root_model" type="success" size="small" effect="plain">根节点</el-tag>
+          <span v-else class="text-gray-300">-</span>
         </template>
       </el-table-column>
       <el-table-column label="属性数" width="100" align="center">
@@ -41,17 +39,6 @@
           <div class="flex items-center justify-center gap-1 text-gray-500">
             <el-icon><Operation /></el-icon>
             <span class="font-mono">{{ row.attributes?.length || 0 }}</span>
-          </div>
-        </template>
-      </el-table-column>
-      <el-table-column label="状态" width="100" align="center">
-        <template #default="{ row }">
-          <div class="flex items-center justify-center gap-2">
-            <span class="relative flex h-2.5 w-2.5">
-              <span v-if="row.is_active" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span class="relative inline-flex rounded-full h-2.5 w-2.5" :class="row.is_active ? 'bg-green-500' : 'bg-gray-400'"></span>
-            </span>
-            <span class="text-xs" :class="row.is_active ? 'text-green-600' : 'text-gray-500'">{{ row.is_active ? '启用' : '禁用' }}</span>
           </div>
         </template>
       </el-table-column>
@@ -95,35 +82,27 @@
               </el-col>
             </el-row>
             <el-row :gutter="24">
-              <el-col :span="12">
-                <el-form-item label="分类" prop="category">
-                  <el-select v-model="form.category" placeholder="选择分类" class="w-full">
-                    <el-option label="机房设施" value="room" />
-                    <el-option label="网络设备" value="network" />
-                    <el-option label="传输设备" value="transmission" />
-                    <el-option label="电源设备" value="power" />
-                    <el-option label="其他" value="other" />
-                  </el-select>
-                </el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item label="状态">
-                  <el-switch v-model="form.is_active" active-text="启用" inactive-text="禁用" />
-                </el-form-item>
-              </el-col>
-            </el-row>
-            <el-row :gutter="24">
-              <el-col :span="12">
-                <el-form-item label="图标">
-                  <el-input v-model="form.icon" placeholder="图标名称" />
-                </el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item label="颜色">
-                  <el-color-picker v-model="form.color" />
-                </el-form-item>
-              </el-col>
-            </el-row>
+               <el-col :span="12">
+                 <el-form-item label="图标">
+                   <el-input v-model="form.icon" placeholder="图标名称" />
+                 </el-form-item>
+               </el-col>
+               <el-col :span="12">
+                 <el-form-item label="颜色">
+                   <el-color-picker v-model="form.color" />
+                 </el-form-item>
+               </el-col>
+             </el-row>
+             <el-row :gutter="24">
+               <el-col :span="24">
+                 <el-form-item>
+                   <el-checkbox v-model="form.is_root_model">
+                     <span>设为根节点模型</span>
+                     <span class="text-gray-400 text-xs ml-1">（顶级资源，不需要关联父级）</span>
+                   </el-checkbox>
+                 </el-form-item>
+               </el-col>
+             </el-row>
             <el-form-item label="描述">
               <el-input v-model="form.description" type="textarea" :rows="3" placeholder="模型描述" />
             </el-form-item>
@@ -131,9 +110,9 @@
         </el-tab-pane>
 
         <el-tab-pane label="属性配置" name="attributes">
-          <div class="bg-gray-50 rounded-lg border border-gray-200 p-4 min-h-[400px]">
-            <div class="flex justify-between items-center mb-4">
-              <span class="text-sm font-medium text-gray-600">拖拽调整属性顺序</span>
+          <div class="attr-config-panel">
+            <div class="attr-config-header">
+              <span class="attr-config-hint">拖拽调整属性顺序</span>
               <el-button type="primary" size="small" @click="showAttributeSelector" plain>
                 <el-icon class="mr-1"><Plus /></el-icon>
                 添加属性
@@ -146,28 +125,22 @@
               handle=".drag-handle"
               animation="200"
               ghost-class="ghost"
-              class="space-y-2"
+              class="attr-list"
             >
               <template #item="{ element, index }">
-                <div class="bg-white border border-gray-200 rounded-lg p-3 flex items-center gap-3 hover:shadow-sm hover:border-indigo-300 transition-all group">
-                  <div class="drag-handle cursor-move text-gray-400 hover:text-indigo-600 p-1">
+                <div class="attr-item">
+                  <div class="drag-handle">
                     <el-icon><Rank /></el-icon>
                   </div>
-                  <div class="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-500 font-mono">
-                    {{ index + 1 }}
-                  </div>
-                  <div class="flex-1">
-                    <div class="flex items-center gap-2">
-                      <span class="font-medium text-gray-800">{{ element.label }}</span>
-                      <span class="text-xs text-gray-400 font-mono">{{ element.name }}</span>
-                    </div>
+                  <div class="attr-item-index">{{ index + 1 }}</div>
+                  <div class="attr-item-info">
+                    <span class="attr-item-label">{{ element.label }}</span>
+                    <span class="attr-item-name">{{ element.name }}</span>
                   </div>
                   <el-tag size="small" type="info">{{ element.type }}</el-tag>
-                  <div class="flex items-center gap-4 ml-4">
+                  <div class="attr-item-actions">
                     <el-checkbox v-model="element.is_required" label="必填" size="small" />
-                    <el-button type="danger" link size="small" @click="removeAttribute(element)" class="opacity-0 group-hover:opacity-100 transition-opacity">
-                      移除
-                    </el-button>
+                    <el-button type="danger" link size="small" @click="removeAttribute(element)">移除</el-button>
                   </div>
                 </div>
               </template>
@@ -220,12 +193,6 @@
       <el-descriptions :column="2" border class="mb-6">
         <el-descriptions-item label="模型名称">{{ currentModel.name }}</el-descriptions-item>
         <el-descriptions-item label="模型编码">{{ currentModel.code }}</el-descriptions-item>
-        <el-descriptions-item label="分类">{{ currentModel.category }}</el-descriptions-item>
-        <el-descriptions-item label="状态">
-          <el-tag :type="currentModel.is_active ? 'success' : 'info'" size="small">
-            {{ currentModel.is_active ? '启用' : '禁用' }}
-          </el-tag>
-        </el-descriptions-item>
         <el-descriptions-item label="描述" :span="2">{{ currentModel.description || '-' }}</el-descriptions-item>
       </el-descriptions>
 
@@ -283,18 +250,17 @@ const filteredGlobalAttrs = computed(() => {
 const form = reactive<any>({
   name: '',
   code: '',
-  category: '',
   description: '',
   icon: '',
   color: '#409EFF',
   is_active: true,
+  is_root_model: false,
   attributes: []
 })
 
 const rules = {
   name: [{ required: true, message: '请输入模型名称', trigger: 'blur' }],
-  code: [{ required: true, message: '请输入模型编码', trigger: 'blur' }, { pattern: /^[a-z_]+$/, message: '只能包含小写字母和下划线', trigger: 'blur' }],
-  category: [{ required: true, message: '请选择分类', trigger: 'change' }]
+  code: [{ required: true, message: '请输入模型编码', trigger: 'blur' }, { pattern: /^[a-z_]+$/, message: '只能包含小写字母和下划线', trigger: 'blur' }]
 }
 
 const loadModels = async () => {
@@ -323,11 +289,11 @@ const handleAdd = () => {
   Object.assign(form, {
     name: '',
     code: '',
-    category: '',
     description: '',
     icon: '',
     color: '#409EFF',
     is_active: true,
+    is_root_model: false,
     attributes: []
   })
   activeTab.value = 'basic'
@@ -348,11 +314,11 @@ const handleEdit = async (row: any) => {
     Object.assign(form, {
       name: model.name,
       code: model.code,
-      category: model.category,
       description: model.description,
       icon: model.icon || '',
       color: model.color || '#409EFF',
       is_active: model.is_active,
+      is_root_model: model.is_root_model || false,
       attributes: (model.attributes || []).map((a: any) => ({
         attribute_id: a.attribute_id || a.id,
         name: a.name,
@@ -428,11 +394,11 @@ const handleSubmit = async () => {
     const data = {
       name: form.name,
       code: form.code,
-      category: form.category,
       description: form.description,
       icon: form.icon,
       color: form.color,
       is_active: form.is_active,
+      is_root_model: form.is_root_model,
       attributes: form.attributes.map((a: any, index: number) => ({
         attribute_id: a.attribute_id,
         is_required: a.is_required,
@@ -465,9 +431,132 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.model-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.model-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.model-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.model-name {
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.model-code {
+  font-size: 12px;
+  color: #9ca3af;
+  font-family: monospace;
+}
+
 .ghost {
   opacity: 0.5;
   background: #eff6ff;
   border: 1px dashed #6366f1;
+}
+
+.attr-config-panel {
+  background: var(--color-bg-light);
+  border-radius: var(--radius-xl);
+  padding: var(--space-lg);
+  min-height: 400px;
+}
+
+.attr-config-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-md);
+}
+
+.attr-config-hint {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.attr-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.attr-item {
+  background: var(--color-surface-light);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: box-shadow 0.2s;
+}
+
+.attr-item:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.drag-handle {
+  cursor: move;
+  color: var(--color-text-tertiary);
+  padding: 4px;
+}
+
+.drag-handle:hover {
+  color: var(--color-accent);
+}
+
+.attr-item-index {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-bg-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  font-family: monospace;
+}
+
+.attr-item-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.attr-item-label {
+  font-weight: 500;
+  color: var(--color-text-dark);
+}
+
+.attr-item-name {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  font-family: monospace;
+}
+
+.attr-item-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  margin-left: var(--space-md);
 }
 </style>

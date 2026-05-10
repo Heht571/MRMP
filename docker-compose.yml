@@ -8,6 +8,8 @@ services:
       POSTGRES_USER: armp
       POSTGRES_PASSWORD: armp
       POSTGRES_DB: armp_db
+      # 预安装 timescaledb 扩展
+      POSTGRES_INITDB_ARGS: "--preload=timescaledb"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -47,7 +49,7 @@ services:
       dockerfile: Dockerfile
     container_name: armp-frontend
     ports:
-      - "80:80"
+      - "8080:80"
     depends_on:
       - backend
     networks:

@@ -3,6 +3,7 @@ from uuid import UUID
 from io import BytesIO
 from urllib.parse import quote
 from datetime import datetime
+from pydantic import BaseModel
 import json
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from fastapi.responses import StreamingResponse
@@ -28,12 +29,13 @@ from app.lib.query_builder import QueryBuilder
 from app.services.cmdb_service import ComputedAttributeService
 from app.services.audit_service import AuditService
 from app.services.lifecycle_service import LifecycleService
+from app.services.timeseries_service import TimeseriesService
 from app.models.auth import User
 
 router = APIRouter()
 
 
-async def get_model_attributes(db: AsyncSession, model_id: UUID) -> List[Dict]:
+async def get_model_attributes(db: AsyncSession, model_id: UUID) -> List[Dict[str, Any]]:
     """获取模型的属性定义"""
     result = await db.execute(
         select(ModelAttribute)
@@ -42,7 +44,7 @@ async def get_model_attributes(db: AsyncSession, model_id: UUID) -> List[Dict]:
         .order_by(ModelAttribute.sort_order)
     )
     model_attributes = result.scalars().all()
-    
+
     attributes = []
     for ma in model_attributes:
         attr = ma.attribute
@@ -57,8 +59,41 @@ async def get_model_attributes(db: AsyncSession, model_id: UUID) -> List[Dict]:
             "description": attr.description,
             "is_computed": attr.is_computed,
             "compute_expr": attr.compute_expr,
+            "is_timeseries": attr.is_timeseries,
+            "timeseries_unit": attr.timeseries_unit,
+            "timeseries_interval": attr.timeseries_interval,
+            "timeseries_retention": attr.timeseries_retention,
+            "timeseries_aggregation": attr.timeseries_aggregation,
         })
     return attributes
+
+
+def create_timeseries_ref(attribute_name: str, instance_id: str) -> Dict[str, Any]:
+    """创建时序属性引用"""
+    return {
+        "__ts_ref__": f"ts:{attribute_name}:{instance_id}",
+        "type": "timeseries"
+    }
+
+
+def is_timeseries_ref(value: Any) -> bool:
+    """检查值是否为时序引用"""
+    if not isinstance(value, dict):
+        return False
+    return "__ts_ref__" in value and str(value.get("__ts_ref__", "")).startswith("ts:")
+
+
+def parse_timeseries_ref(ref: str) -> Optional[Dict[str, str]]:
+    """解析时序引用ID"""
+    if not ref.startswith("ts:"):
+        return None
+    parts = ref.split(":", 2)
+    if len(parts) != 3:
+        return None
+    return {
+        "attribute_name": parts[1],
+        "instance_id": parts[2]
+    }
 
 
 async def validate_instance_data(
@@ -85,6 +120,7 @@ async def validate_instance_data(
             "type": attr["type"],
             "is_required": attr["is_required"],
             "enum_values": attr["enum_values"],
+            "is_timeseries": attr.get("is_timeseries", False),
         }
         if attr["is_required"]:
             required_attrs.append(attr_name)
@@ -113,7 +149,15 @@ async def validate_instance_data(
         if attr_name in data and data[attr_name] is not None:
             value = data[attr_name]
             attr_type = attr_def["type"]
-            
+
+            # 时序属性: 自动生成引用 (如果尚未设置)
+            if attr_type == "timeseries":
+                if not isinstance(value, dict) or "__ts_ref__" not in value:
+                    # 需要 instance_id 才能生成引用，这里先跳过创建
+                    # 在创建实例后调用补全引用
+                    pass
+                continue
+
             if attr_type == "enum" and attr_def["enum_values"]:
                 valid_values = [v.get("value") if isinstance(v, dict) else v for v in attr_def["enum_values"]]
                 if value not in valid_values:
@@ -219,33 +263,53 @@ async def create_instance(
     model = result.scalar_one_or_none()
     if not model:
         raise HTTPException(status_code=400, detail="指定的模型不存在")
-    
+
     validated_data = await validate_instance_data(
-        db, 
-        instance_in.model_id, 
+        db,
+        instance_in.model_id,
         instance_in.data or {},
         is_update=False
     )
-    
+
     # 计算计算属性
     attributes = await get_model_attributes(db, instance_in.model_id)
     validated_data = ComputedAttributeService.calculate_attributes(validated_data, attributes)
-    
+
+    # 为时序属性自动生成引用
+    for attr in attributes:
+        if attr.get("is_timeseries") and attr["name"] in validated_data:
+            attr_value = validated_data[attr["name"]]
+            if not isinstance(attr_value, dict) or "__ts_ref__" not in attr_value:
+                validated_data[attr["name"]] = create_timeseries_ref(attr["name"], "{{instance_id}}")
+
     instance = Instance(
         model_id=instance_in.model_id,
         name=instance_in.name,
         code=instance_in.code,
-        status=instance_in.status, # 显式设置状态
+        status=instance_in.status,
         data=validated_data
     )
     db.add(instance)
-    
+
+    await db.flush()
+
+    # 补全时序引用的 instance_id
+    if instance.data:
+        for key, value in instance.data.items():
+            if isinstance(value, dict) and value.get("__ts_ref__"):
+                if "{{instance_id}}" in value["__ts_ref__"]:
+                    instance.data[key] = {
+                        "__ts_ref__": value["__ts_ref__"].replace("{{instance_id}}", str(instance.id)),
+                        "type": "timeseries"
+                    }
+        await db.flush()
+
     # 记录审计日志
     await AuditService.log_create(db, instance, current_user.username)
-    
+
     await db.commit()
     await db.refresh(instance)
-    
+
     return InstanceResponse(
         id=instance.id,
         name=instance.name,
@@ -804,7 +868,7 @@ async def preview_import(
                     if attr_type == "number":
                         try:
                             value = float(value) if '.' in str(value) else int(value)
-                        except:
+                        except (ValueError, TypeError):
                             row_data["_errors"].append(f"{attr['label']}必须是数字")
                     elif attr_type == "boolean":
                         if isinstance(value, str):
@@ -954,8 +1018,8 @@ async def import_instances(
                         if attr_type == "number":
                             try:
                                 value = float(value) if '.' in str(value) else int(value)
-                            except:
-                                pass
+                            except (ValueError, TypeError):
+                                continue
                         elif attr_type == "boolean":
                             if isinstance(value, str):
                                 value = value.lower() in ('true', '1', 'yes', '是')
@@ -1133,9 +1197,166 @@ async def export_instances(
     
     filename = f"{model.name}_导出数据.xlsx"
     encoded_filename = quote(filename)
-    
+
     return StreamingResponse(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
     )
+
+
+# ===== 时序数据 API =====
+
+class TimeseriesDatapoint(BaseModel):
+    """单个时序数据点"""
+    timestamp: Optional[datetime] = None
+    values: Dict[str, float]
+
+
+class TimeseriesWriteRequest(BaseModel):
+    """时序数据写入请求"""
+    attribute_name: str
+    data_points: List[TimeseriesDatapoint]
+
+
+@router.post("/{instance_id}/timeseries/write")
+async def write_timeseries_data(
+    instance_id: UUID,
+    request: TimeseriesWriteRequest,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(deps.check_permissions("instance:create"))
+):
+    """写入时序数据点"""
+    result = await db.execute(select(Instance).where(Instance.id == instance_id))
+    instance = result.scalar_one_or_none()
+    if not instance:
+        raise HTTPException(status_code=404, detail="实例不存在")
+
+    service = TimeseriesService(db)
+    datapoints = await service.write_datapoints(
+        instance_id=instance_id,
+        attribute_name=request.attribute_name,
+        data_points=[dp.model_dump() for dp in request.data_points]
+    )
+
+    await db.commit()
+
+    return {
+        "success": True,
+        "message": f"成功写入 {len(datapoints)} 个数据点",
+        "count": len(datapoints)
+    }
+
+
+@router.get("/{instance_id}/timeseries/{attribute_name}")
+async def get_timeseries_data(
+    instance_id: UUID,
+    attribute_name: str,
+    start_time: datetime = Query(...),
+    end_time: datetime = Query(...),
+    bucket: Optional[str] = Query(None, description="聚合时间桶，如 '1 hour', '5 minute'"),
+    limit: int = Query(1000, ge=1, le=10000),
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(deps.check_permissions("instance:read"))
+):
+    """查询时序数据"""
+    result = await db.execute(select(Instance).where(Instance.id == instance_id))
+    instance = result.scalar_one_or_none()
+    if not instance:
+        raise HTTPException(status_code=404, detail="实例不存在")
+
+    service = TimeseriesService(db)
+
+    if bucket:
+        data = await service.query_aggregated(
+            instance_id=instance_id,
+            attribute_name=attribute_name,
+            start_time=start_time,
+            end_time=end_time,
+            bucket=bucket
+        )
+        return {
+            "aggregated": True,
+            "bucket": bucket,
+            "data": data
+        }
+    else:
+        data_points = await service.query_range(
+            instance_id=instance_id,
+            attribute_name=attribute_name,
+            start_time=start_time,
+            end_time=end_time,
+            limit=limit
+        )
+        return {
+            "aggregated": False,
+            "data": [
+                {
+                    "timestamp": dp.timestamp.isoformat(),
+                    "values": dp.value
+                }
+                for dp in data_points
+            ]
+        }
+
+
+@router.get("/{instance_id}/timeseries/{attribute_name}/latest")
+async def get_timeseries_latest(
+    instance_id: UUID,
+    attribute_name: str,
+    limit: int = Query(10, ge=1, le=100),
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(deps.check_permissions("instance:read"))
+):
+    """获取最新的时序数据"""
+    result = await db.execute(select(Instance).where(Instance.id == instance_id))
+    instance = result.scalar_one_or_none()
+    if not instance:
+        raise HTTPException(status_code=404, detail="实例不存在")
+
+    service = TimeseriesService(db)
+    latest_points = await service.get_latest(
+        instance_id=instance_id,
+        attribute_name=attribute_name,
+        limit=limit
+    )
+
+    return {
+        "data": [
+            {
+                "timestamp": dp.timestamp.isoformat(),
+                "values": dp.value
+            }
+            for dp in latest_points
+        ]
+    }
+
+
+@router.get("/{instance_id}/timeseries/{attribute_name}/statistics")
+async def get_timeseries_statistics(
+    instance_id: UUID,
+    attribute_name: str,
+    start_time: datetime = Query(...),
+    end_time: datetime = Query(...),
+    metrics: Optional[str] = Query(None, description="逗号分隔的指标列表"),
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(deps.check_permissions("instance:read"))
+):
+    """获取时序数据统计信息"""
+    result = await db.execute(select(Instance).where(Instance.id == instance_id))
+    instance = result.scalar_one_or_none()
+    if not instance:
+        raise HTTPException(status_code=404, detail="实例不存在")
+
+    metric_list = metrics.split(',') if metrics else None
+
+    service = TimeseriesService(db)
+    stats = await service.get_statistics(
+        instance_id=instance_id,
+        attribute_name=attribute_name,
+        start_time=start_time,
+        end_time=end_time,
+        metrics=metric_list
+    )
+
+    return stats

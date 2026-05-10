@@ -43,6 +43,9 @@ class Instance(Base):
         Index('ix_instances_data_gin', 'data', postgresql_using='gin'),
         Index('ix_instances_name', 'name'),
         Index('ix_instances_code', 'code'),
+        Index('ix_instances_status', 'status'),
+        Index('ix_instances_created_at', 'created_at'),
+        Index('ix_instances_model_id_status', 'model_id', 'status'),
     )
     
     def __repr__(self):

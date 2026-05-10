@@ -14,16 +14,16 @@
       <el-table :data="relations" v-loading="loading" stripe style="width: 100%">
         <el-table-column prop="name" label="关系名称" min-width="120" />
         <el-table-column prop="code" label="关系编码" width="120" />
-        <el-table-column label="源模型(子)" width="120">
-          <template #default="{ row }">
-            <el-tag size="small">{{ row.source_model?.name || '-' }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="目标模型(父)" width="120">
-          <template #default="{ row }">
-            <el-tag size="small" type="success">{{ row.target_model?.name || '-' }}</el-tag>
-          </template>
-        </el-table-column>
+        <el-table-column label="源模型" width="120">
+           <template #default="{ row }">
+             <el-tag size="small">{{ row.source_model?.name || '-' }}</el-tag>
+           </template>
+         </el-table-column>
+         <el-table-column label="目标模型" width="120">
+           <template #default="{ row }">
+             <el-tag size="small" type="success">{{ row.target_model?.name || '-' }}</el-tag>
+           </template>
+         </el-table-column>
         <el-table-column prop="relation_label" label="关系标签" width="100">
           <template #default="{ row }">
             <span>{{ row.relation_label }}</span>
@@ -88,20 +88,20 @@
         </el-row>
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="源模型(子)" prop="source_model_id">
-              <el-select v-model="form.source_model_id" placeholder="选择源模型" style="width: 100%" :disabled="!!currentRelation?.id">
-                <el-option 
-                  v-for="model in models" 
-                  :key="model.id" 
-                  :label="model.name" 
-                  :value="model.id"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="目标模型(父)" prop="target_model_id">
-              <el-select v-model="form.target_model_id" placeholder="选择目标模型" style="width: 100%" :disabled="!!currentRelation?.id">
+            <el-form-item label="源模型" prop="source_model_id">
+               <el-select v-model="form.source_model_id" placeholder="选择源模型" style="width: 100%" :disabled="!!currentRelation?.id">
+                 <el-option 
+                   v-for="model in models" 
+                   :key="model.id" 
+                   :label="model.name" 
+                   :value="model.id"
+                 />
+               </el-select>
+             </el-form-item>
+           </el-col>
+           <el-col :span="12">
+             <el-form-item label="目标模型" prop="target_model_id">
+               <el-select v-model="form.target_model_id" placeholder="选择目标模型" style="width: 100%" :disabled="!!currentRelation?.id">
                 <el-option 
                   v-for="model in models" 
                   :key="model.id" 
@@ -114,17 +114,13 @@
         </el-row>
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="关系标签" prop="relation_label">
-              <el-input v-model="form.relation_label" placeholder="如：包含" />
+            <el-form-item label="关系类型" prop="relation_type">
+              <el-select v-model="form.relation_type" placeholder="选择关系类型" style="width: 100%">
+                <el-option label="包含 (contain) - 层级关系，父→子" value="contain" />
+                <el-option label="连接 (connect) - 对等关系，双向" value="connect" />
+              </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="12">
-            <el-form-item label="反向标签">
-              <el-input v-model="form.inverse_label" placeholder="如：属于" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="映射类型" prop="mapping_type">
               <el-select v-model="form.mapping_type" placeholder="选择映射类型" style="width: 100%">
@@ -133,11 +129,6 @@
                 <el-option label="多对一" value="many_to_one" />
                 <el-option label="多对多" value="many_to_many" />
               </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="层级关系">
-              <el-switch v-model="form.is_hierarchical" active-text="是" inactive-text="否" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -170,9 +161,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Check } from '@element-plus/icons-vue'
-import axios from 'axios'
-
-const api = axios.create({ baseURL: 'http://localhost:8000/api/v2' })
+import api from '@/api'
 
 const loading = ref(false)
 const relations = ref<any[]>([])
@@ -189,10 +178,8 @@ const form = reactive<any>({
   code: '',
   source_model_id: null,
   target_model_id: null,
+  relation_type: 'contain',
   mapping_type: 'one_to_many',
-  relation_label: '',
-  inverse_label: '',
-  is_hierarchical: true,
   min_cardinality: 0,
   max_cardinality: -1,
   description: ''
@@ -203,8 +190,8 @@ const rules = {
   code: [{ required: true, message: '请输入关系编码', trigger: 'blur' }, { pattern: /^[a-z_]+$/, message: '只能包含小写字母和下划线', trigger: 'blur' }],
   source_model_id: [{ required: true, message: '请选择源模型', trigger: 'change' }],
   target_model_id: [{ required: true, message: '请选择目标模型', trigger: 'change' }],
-  mapping_type: [{ required: true, message: '请选择映射类型', trigger: 'change' }],
-  relation_label: [{ required: true, message: '请输入关系标签', trigger: 'blur' }]
+  relation_type: [{ required: true, message: '请选择关系类型', trigger: 'change' }],
+  mapping_type: [{ required: true, message: '请选择映射类型', trigger: 'change' }]
 }
 
 const mappingTypeLabel = (type) => {
@@ -238,7 +225,7 @@ const statusType = (status) => {
 const loadRelations = async () => {
   loading.value = true
   try {
-    const res = await api.get('/relation-definitions/')
+    const res = await api.get('/v2/relation-definitions/')
     relations.value = res.data
   } catch (error) {
     console.error('加载关系列表失败:', error)
@@ -250,7 +237,7 @@ const loadRelations = async () => {
 
 const loadModels = async () => {
   try {
-    const res = await api.get('/models/')
+    const res = await api.get('/v2/models/')
     models.value = res.data
   } catch (error) {
     console.error('加载模型列表失败:', error)
@@ -264,10 +251,8 @@ const handleAdd = () => {
     code: '',
     source_model_id: null,
     target_model_id: null,
+    relation_type: 'contain',
     mapping_type: 'one_to_many',
-    relation_label: '',
-    inverse_label: '',
-    is_hierarchical: true,
     min_cardinality: 0,
     max_cardinality: -1,
     description: ''
@@ -282,10 +267,8 @@ const handleEdit = (row) => {
     code: row.code,
     source_model_id: row.source_model_id,
     target_model_id: row.target_model_id,
+    relation_type: row.relation_type || 'contain',
     mapping_type: row.mapping_type,
-    relation_label: row.relation_label,
-    inverse_label: row.inverse_label || '',
-    is_hierarchical: row.is_hierarchical,
     min_cardinality: row.min_cardinality,
     max_cardinality: row.max_cardinality,
     description: row.description || ''
@@ -296,7 +279,7 @@ const handleEdit = (row) => {
 const handleDelete = async (row) => {
   try {
     await ElMessageBox.confirm('确定要删除该关系定义吗？相关的实例映射也会被删除。', '提示', { type: 'warning' })
-    await api.delete(`/relation-definitions/${row.id}`)
+    await api.delete(`/v2/relation-definitions/${row.id}`)
     ElMessage.success('删除成功')
     loadRelations()
   } catch (error) {
@@ -309,7 +292,7 @@ const handleDelete = async (row) => {
 
 const handleActivate = async (row) => {
   try {
-    await api.post(`/relation-definitions/${row.id}/activate`)
+    await api.post(`/v2/relation-definitions/${row.id}/activate`)
     ElMessage.success('激活成功')
     loadRelations()
   } catch (error) {
@@ -320,7 +303,7 @@ const handleActivate = async (row) => {
 
 const handleDeactivate = async (row) => {
   try {
-    await api.post(`/relation-definitions/${row.id}/deactivate`)
+    await api.post(`/v2/relation-definitions/${row.id}/deactivate`)
     ElMessage.success('停用成功')
     loadRelations()
   } catch (error) {
@@ -335,10 +318,10 @@ const handleSubmit = async () => {
     submitting.value = true
     
     if (currentRelation.value?.id) {
-      await api.put(`/relation-definitions/${currentRelation.value.id}`, form)
+      await api.put(`/v2/relation-definitions/${currentRelation.value.id}`, form)
       ElMessage.success('更新成功')
     } else {
-      await api.post('/relation-definitions/', form)
+      await api.post('/v2/relation-definitions/', form)
       ElMessage.success('创建成功')
     }
     

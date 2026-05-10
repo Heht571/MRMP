@@ -1,91 +1,91 @@
 <template>
   <div class="search-builder">
-    <div v-for="(filter, index) in filters" :key="index" class="flex gap-2 mb-2 items-center">
+    <div v-for="(filter, index) in filters" :key="index" class="filter-row">
       <!-- 字段选择 -->
-      <el-select 
-        v-model="filter.field" 
-        placeholder="选择属性" 
-        class="w-40"
+      <el-select
+        v-model="filter.field"
+        placeholder="选择属性"
+        class="field-select"
         @change="handleFieldChange(filter)"
       >
-        <el-option 
-          v-for="attr in attributes" 
-          :key="attr.name" 
-          :label="attr.label" 
-          :value="attr.name" 
+        <el-option
+          v-for="attr in attributes"
+          :key="attr.name"
+          :label="attr.label"
+          :value="attr.name"
         />
       </el-select>
 
       <!-- 操作符选择 -->
-      <el-select v-model="filter.operator" placeholder="操作符" class="w-32">
-        <el-option 
-          v-for="op in getOperators(filter.field)" 
-          :key="op.value" 
-          :label="op.label" 
-          :value="op.value" 
+      <el-select v-model="filter.operator" placeholder="操作符" class="operator-select">
+        <el-option
+          v-for="op in getOperators(filter.field)"
+          :key="op.value"
+          :label="op.label"
+          :value="op.value"
         />
       </el-select>
 
       <!-- 值输入 -->
-      <div class="flex-1">
+      <div class="value-input">
         <template v-if="!['is_null', 'not_null'].includes(filter.operator)">
           <!-- 枚举类型 -->
-          <el-select 
-            v-if="getFieldType(filter.field) === 'enum'" 
-            v-model="filter.value" 
+          <el-select
+            v-if="getFieldType(filter.field) === 'enum'"
+            v-model="filter.value"
             placeholder="选择值"
-            class="w-full"
+            class="full-width"
             clearable
           >
-            <el-option 
-              v-for="opt in getEnumOptions(filter.field)" 
-              :key="opt.value" 
-              :label="opt.label" 
-              :value="opt.value" 
+            <el-option
+              v-for="opt in getEnumOptions(filter.field)"
+              :key="opt.value"
+              :label="opt.label"
+              :value="opt.value"
             />
           </el-select>
 
           <!-- 布尔类型 -->
-          <el-select 
-            v-else-if="getFieldType(filter.field) === 'boolean'" 
-            v-model="filter.value" 
+          <el-select
+            v-else-if="getFieldType(filter.field) === 'boolean'"
+            v-model="filter.value"
             placeholder="选择值"
-            class="w-full"
+            class="full-width"
           >
             <el-option label="是" :value="true" />
             <el-option label="否" :value="false" />
           </el-select>
 
           <!-- 数字类型 -->
-          <el-input-number 
-            v-else-if="getFieldType(filter.field) === 'number'" 
-            v-model="filter.value" 
-            class="w-full"
+          <el-input-number
+            v-else-if="getFieldType(filter.field) === 'number'"
+            v-model="filter.value"
+            class="full-width"
             controls-position="right"
           />
 
           <!-- 日期类型 -->
-          <el-date-picker 
-            v-else-if="['date', 'datetime'].includes(getFieldType(filter.field))" 
-            v-model="filter.value" 
+          <el-date-picker
+            v-else-if="['date', 'datetime'].includes(getFieldType(filter.field))"
+            v-model="filter.value"
             type="date"
-            class="w-full"
+            class="full-width"
             value-format="YYYY-MM-DD"
           />
 
           <!-- 默认文本 -->
-          <el-input 
-            v-else 
-            v-model="filter.value" 
-            placeholder="输入值" 
+          <el-input
+            v-else
+            v-model="filter.value"
+            placeholder="输入值"
           />
         </template>
       </div>
 
       <!-- 删除按钮 -->
-      <el-button 
-        type="danger" 
-        circle 
+      <el-button
+        type="danger"
+        circle
         size="small"
         icon="Delete"
         @click="removeFilter(index)"
@@ -94,9 +94,9 @@
     </div>
 
     <!-- 底部操作栏 -->
-    <div class="flex justify-between mt-2">
+    <div class="filter-actions">
       <el-button type="primary" link icon="Plus" @click="addFilter">添加条件</el-button>
-      <div class="gap-2 flex">
+      <div class="action-buttons">
         <el-button @click="resetFilters">重置</el-button>
         <el-button type="primary" @click="handleSearch">查询</el-button>
       </div>
@@ -204,3 +204,43 @@ const handleSearch = () => {
   emit('search', validFilters)
 }
 </script>
+
+<style scoped>
+.search-builder {
+  padding: var(--space-md);
+}
+
+.filter-row {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+  align-items: center;
+}
+
+.field-select {
+  width: 160px;
+}
+
+.operator-select {
+  width: 128px;
+}
+
+.value-input {
+  flex: 1;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.filter-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--space-sm);
+}
+
+.action-buttons {
+  display: flex;
+  gap: var(--space-sm);
+}
+</style>

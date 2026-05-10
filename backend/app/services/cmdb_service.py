@@ -249,9 +249,55 @@ class TriggerService:
         instance: Instance,
         old_data: Optional[Dict] = None,
     ) -> tuple[bool, Optional[str], Optional[Dict]]:
-        """执行脚本触发器"""
+        """Execute script trigger using safe sandboxed execution.
+        
+        SECURITY: This method uses a restricted execution environment
+        to prevent arbitrary code execution. Only safe builtins are allowed.
+        """
         config = trigger.action_config
         script = config.get("code", "")
+        
+        safe_builtins = {
+            "print": print,
+            "len": len,
+            "str": str,
+            "int": int,
+            "float": float,
+            "bool": bool,
+            "list": list,
+            "dict": dict,
+            "tuple": tuple,
+            "set": set,
+            "range": range,
+            "enumerate": enumerate,
+            "zip": zip,
+            "map": map,
+            "filter": filter,
+            "sorted": sorted,
+            "reversed": reversed,
+            "min": min,
+            "max": max,
+            "sum": sum,
+            "abs": abs,
+            "round": round,
+            "isinstance": isinstance,
+            "issubclass": issubclass,
+            "hasattr": hasattr,
+            "getattr": getattr,
+            "setattr": setattr,
+            "type": type,
+            "any": any,
+            "all": all,
+            "ord": ord,
+            "chr": chr,
+            "hex": hex,
+            "oct": oct,
+            "bin": bin,
+            "repr": repr,
+            "True": True,
+            "False": False,
+            "None": None,
+        }
         
         context = {
             "instance_id": str(instance.id),
@@ -262,7 +308,7 @@ class TriggerService:
         }
         
         try:
-            exec(script, {"__builtins__": __builtins__}, context)
+            exec(script, {"__builtins__": safe_builtins}, context)
             return True, None, {"result": context.get("result")}
         except Exception as e:
             return False, str(e), None

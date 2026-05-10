@@ -1,15 +1,15 @@
 <template>
-  <el-form 
-    ref="formRef" 
-    :model="formData" 
-    :rules="formRules" 
-    label-width="120px" 
-    class="py-4"
+  <el-form
+    ref="formRef"
+    :model="formData"
+    :rules="formRules"
+    label-width="120px"
+    class="schema-form"
     v-loading="loading"
   >
     <!-- Basic Info Section -->
-    <div class="bg-gray-50 p-4 rounded-lg border border-gray-100 mb-6">
-      <div class="text-sm font-semibold text-gray-700 mb-4 border-l-4 border-indigo-500 pl-2">基础信息</div>
+    <div class="form-section">
+      <div class="section-title">基础信息</div>
       <el-row :gutter="24">
         <el-col :span="12">
           <el-form-item label="名称" prop="name">
@@ -23,41 +23,39 @@
         </el-col>
       </el-row>
     </div>
-    
+
     <!-- Dynamic Attributes Section -->
     <div v-if="attributes.length > 0">
-      <div class="text-sm font-semibold text-gray-700 mb-4 border-l-4 border-indigo-500 pl-2">扩展属性</div>
+      <div class="section-title">扩展属性</div>
       <el-row :gutter="24">
-        <el-col 
-          v-for="attr in attributes" 
-          :key="attr.id" 
+        <el-col
+          v-for="attr in attributes"
+          :key="attr.id"
           :span="12"
         >
-          <el-form-item 
-            :label="attr.label" 
+          <el-form-item
+            :label="attr.label"
             :prop="'data.' + attr.name"
             :rules="getRules(attr)"
           >
             <!-- String -->
-            <el-input 
-              v-if="attr.type === 'string'" 
-              v-model="formData.data[attr.name]" 
-              :placeholder="`请输入${attr.label}`" 
+            <el-input
+              v-if="attr.type === 'string'"
+              v-model="formData.data[attr.name]"
+              :placeholder="`请输入${attr.label}`"
             />
             <!-- Number -->
-            <el-input-number 
-              v-else-if="attr.type === 'number'" 
-              v-model="formData.data[attr.name]" 
+            <el-input-number
+              v-else-if="attr.type === 'number'"
+              v-model="formData.data[attr.name]"
               style="width: 100%"
-              class="w-full"
             />
             <!-- Enum -->
-            <el-select 
-              v-else-if="attr.type === 'enum'" 
-              v-model="formData.data[attr.name]" 
+            <el-select
+              v-else-if="attr.type === 'enum'"
+              v-model="formData.data[attr.name]"
               :placeholder="`请选择${attr.label}`"
               style="width: 100%"
-              class="w-full"
               clearable
             >
               <el-option 
@@ -94,7 +92,7 @@
             <el-input 
               v-else 
               v-model="formData.data[attr.name]" 
-              :placeholder="`请输入${attr.label}`" 
+              :placeholder="`请输入${attr.label}`"
             />
           </el-form-item>
         </el-col>
@@ -102,9 +100,9 @@
     </div>
 
     <!-- Actions -->
-    <div class="flex justify-end gap-3 mt-6 border-t border-gray-200 pt-4">
+    <div class="form-actions">
       <el-button @click="$emit('cancel')">取消</el-button>
-      <el-button type="primary" @click="handleSubmit" :loading="submitting" class="bg-indigo-600 border-indigo-600 hover:bg-indigo-700">保存</el-button>
+      <el-button type="primary" @click="handleSubmit" :loading="submitting">保存</el-button>
     </div>
   </el-form>
 </template>
@@ -218,16 +216,46 @@ onMounted(() => {
 
 const handleSubmit = async () => {
   if (!formRef.value) return
-  
+
   try {
     await formRef.value.validate()
     submitting.value = true
     emit('submit', { ...formData.value, model_id: props.modelId || model.value?.id })
-    // Note: We don't set submitting = false here because the parent usually handles the async submit
-    // But if we want to reset it:
     setTimeout(() => { submitting.value = false }, 1000)
   } catch (error) {
     console.error('Validation failed', error)
   }
 }
 </script>
+
+<style scoped>
+.schema-form {
+  padding: var(--space-md);
+}
+
+.form-section {
+  background: var(--color-bg-light);
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  margin-bottom: var(--space-lg);
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-dark);
+  margin-bottom: var(--space-sm);
+  padding-left: var(--space-sm);
+  border-left: 3px solid var(--color-accent);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+  padding-top: var(--space-md);
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+</style>

@@ -2,16 +2,17 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
+import type { User, LoginForm } from '@/types'
 
 export const useAuthStore = defineStore('auth', () => {
   const router = useRouter()
   
   const token = ref(localStorage.getItem('token') || '')
-  const user = ref<any>(null)
+  const user = ref<User | null>(null)
   
   const isAuthenticated = computed(() => !!token.value)
   
-  const login = async (form: any) => {
+  const login = async (form: LoginForm) => {
     try {
       // Use URLSearchParams for OAuth2 standard compatibility
       const params = new URLSearchParams()

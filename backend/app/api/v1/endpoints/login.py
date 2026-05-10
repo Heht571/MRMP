@@ -1,6 +1,6 @@
 from datetime import timedelta
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -11,28 +11,33 @@ from app.core.config import settings
 from app.models.auth import User
 from app.schemas.user import Token, UserResponse, UserCreate
 from app.api import deps
+from app.api.v1.endpoints.rate_limit import rate_limit_login
 
 router = APIRouter()
 
 @router.post("/login/access-token", response_model=Token)
 async def login_access_token(
+    request: Request,
     db: AsyncSession = Depends(get_async_db),
     form_data: OAuth2PasswordRequestForm = Depends()
 ) -> Any:
     """
     OAuth2 compatible token login, get an access token for future requests
     """
+    # Rate limiting check
+    await rate_limit_login(request)
+
     # 1. Find user
     result = await db.execute(select(User).where(User.username == form_data.username))
     user = result.scalar_one_or_none()
-    
+
     # 2. Validate password
     if not user or not security.verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=400, detail="用户名或密码错误")
-    
+
     if not user.is_active:
         raise HTTPException(status_code=400, detail="用户未激活")
-    
+
     # 3. Create token
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     return {

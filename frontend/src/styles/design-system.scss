@@ -1,0 +1,1343 @@
+/**
+ * CER-CM Frontend Design System
+ * Apple-inspired design language for Vue 3 + Element Plus
+ */
+
+// ============================================
+// 1. Design Tokens (CSS Variables)
+// ============================================
+
+:root {
+  // --- Colors ---
+  --color-bg-dark: #000000;
+  --color-bg-light: #f5f5f7;
+  --color-text-light: #ffffff;
+  --color-text-dark: #1d1d1f;
+  --color-text-secondary: rgba(0, 0, 0, 0.8);
+  --color-text-tertiary: rgba(0, 0, 0, 0.48);
+  --color-accent: #0071e3;
+  --color-accent-hover: #0077ed;
+  --color-link-light: #0066cc;
+  --color-link-dark: #2997ff;
+  --color-success: #34c759;
+  --color-warning: #ff9500;
+  --color-danger: #ff3b30;
+  --color-surface-light: #ffffff;
+  --color-surface-elevated: #fafafc;
+  --color-surface-dark-1: #272729;
+  --color-surface-dark-2: #1d1d1f;
+  --color-btn-active: #ededf2;
+
+  // --- Typography ---
+  --font-display: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+  --font-text: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+
+  // --- Shadows ---
+  --shadow-card: rgba(0, 0, 0, 0.22) 3px 5px 30px 0px;
+
+  // --- Border Radius ---
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-lg: 11px;
+  --radius-xl: 12px;
+  --radius-pill: 980px;
+  --radius-circle: 50%;
+
+  // --- Spacing ---
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-xxl: 48px;
+
+  // --- Transitions ---
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.3s ease;
+}
+
+// ============================================
+// 2. Global Base Styles
+// ============================================
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #app {
+  height: 100%;
+  font-family: var(--font-text);
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  color: var(--color-text-dark);
+  background: var(--color-bg-light);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+// ============================================
+// 3. Element Plus Component Overrides
+// ============================================
+
+// --- Card ---
+.el-card {
+  background: var(--color-surface-light);
+  border: none;
+  border-radius: var(--radius-xl);
+  color: var(--color-text-dark);
+  box-shadow: none;
+
+  .el-card__header {
+    border-bottom: none;
+    padding: var(--space-lg);
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .el-card__body {
+    padding: var(--space-lg);
+  }
+}
+
+// --- Button ---
+.el-button {
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 8px 15px;
+  font-size: 14px;
+  font-weight: 400;
+  transition: all var(--transition-fast);
+
+  &--primary {
+    background: var(--color-accent);
+    color: var(--color-text-light);
+
+    &:hover,
+    &:focus {
+      background: var(--color-accent-hover);
+    }
+
+    &:active {
+      background: var(--color-btn-active);
+      color: var(--color-text-dark);
+    }
+  }
+
+  &--default {
+    background: var(--color-surface-elevated);
+    color: var(--color-text-secondary);
+
+    &:hover,
+    &:focus {
+      background: var(--color-btn-active);
+    }
+  }
+
+  &--text {
+    background: transparent;
+    color: var(--color-link-light);
+    padding: 0;
+
+    &:hover,
+    &:focus {
+      color: var(--color-accent);
+    }
+  }
+
+  &--success {
+    background: var(--color-success);
+    color: var(--color-text-light);
+  }
+
+  &--warning {
+    background: var(--color-warning);
+    color: var(--color-text-light);
+  }
+
+  &--danger {
+    background: var(--color-danger);
+    color: var(--color-text-light);
+  }
+}
+
+// --- Input ---
+.el-input {
+  .el-input__wrapper {
+    background: var(--color-surface-light);
+    border: none;
+    border-radius: var(--radius-lg);
+    padding: 0 14px;
+    height: 36px;
+    box-shadow: none;
+
+    &:hover {
+      box-shadow: none;
+    }
+
+    &.is-focus {
+      outline: 2px solid var(--color-accent);
+    }
+  }
+
+  .el-input__inner {
+    font-size: 14px;
+    color: var(--color-text-dark);
+  }
+}
+
+// --- Select ---
+.el-select {
+  .el-select__wrapper {
+    background: var(--color-surface-light);
+    border: 3px solid rgba(0, 0, 0, 0.04);
+    border-radius: var(--radius-lg);
+    box-shadow: none;
+
+    &:hover {
+      border-color: rgba(0, 0, 0, 0.08);
+    }
+
+    &.is-focused {
+      border-color: var(--color-accent);
+    }
+  }
+}
+
+.el-select-dropdown {
+  background: var(--color-surface-light);
+  border: none;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+// --- Table ---
+.el-table {
+  background: transparent;
+  color: var(--color-text-dark);
+  font-size: 14px;
+
+  th.el-table__cell {
+    background: transparent;
+    color: var(--color-text-tertiary);
+    font-weight: 600;
+    border-bottom: none;
+  }
+
+  td.el-table__cell {
+    border-bottom: none;
+    padding: 16px 0;
+  }
+
+  tr:hover td.el-table__cell {
+    background: var(--color-bg-light);
+  }
+
+  .el-table__inner-wrapper::before {
+    display: none;
+  }
+}
+
+// --- Tag ---
+.el-tag {
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  color: inherit;
+
+  &--success {
+    color: var(--color-success);
+  }
+
+  &--warning {
+    color: var(--color-warning);
+  }
+
+  &--danger {
+    color: var(--color-danger);
+  }
+
+  &--info {
+    color: var(--color-accent);
+  }
+}
+
+// --- Dialog ---
+.el-dialog {
+  background: var(--color-surface-light);
+  border: none;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+
+  .el-dialog__header {
+    padding: var(--space-lg);
+
+    .el-dialog__title {
+      font-size: 16px;
+      font-weight: 600;
+    }
+  }
+
+  .el-dialog__body {
+    padding: 0 var(--space-lg) var(--space-lg);
+  }
+
+  .el-dialog__footer {
+    padding: var(--space-lg);
+    border-top: none;
+  }
+}
+
+// --- Dropdown ---
+.el-dropdown-menu {
+  background: var(--color-surface-light);
+  border: none;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-sm);
+
+  .el-dropdown-menu__item {
+    border-radius: var(--radius-sm);
+
+    &:hover {
+      background: var(--color-bg-light);
+    }
+  }
+}
+
+// --- Progress ---
+.el-progress {
+  .el-progress-bar__outer {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: var(--radius-pill);
+  }
+
+  .el-progress-bar__inner {
+    background: var(--color-accent);
+    border-radius: var(--radius-pill);
+  }
+}
+
+// --- Pagination ---
+.el-pagination {
+  .el-pager li {
+    background: transparent;
+    color: var(--color-text-secondary);
+
+    &.is-active {
+      color: var(--color-accent);
+    }
+  }
+
+  button {
+    background: transparent;
+    color: var(--color-text-secondary);
+  }
+}
+
+// --- Message ---
+.el-message {
+  background: var(--color-surface-light);
+  border: none;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+// --- Form ---
+.el-form {
+  .el-form-item__label {
+    color: var(--color-text-secondary);
+    font-weight: 400;
+    font-size: 14px;
+  }
+
+  .el-form-item {
+    margin-bottom: var(--space-lg);
+  }
+}
+
+// --- Menu ---
+.el-menu {
+  border: none;
+  background: transparent;
+
+  .el-menu-item {
+    border-radius: var(--radius-md);
+
+    &.is-active {
+      background: var(--color-bg-light);
+      color: var(--color-accent);
+    }
+  }
+}
+
+// --- Tabs ---
+.el-tabs {
+  .el-tabs__nav-wrap::after {
+    display: none;
+  }
+
+  .el-tabs__item {
+    color: var(--color-text-secondary);
+
+    &.is-active {
+      color: var(--color-accent);
+    }
+  }
+
+  .el-tabs__active-bar {
+    background: var(--color-accent);
+  }
+}
+
+// --- Drawer ---
+.el-drawer {
+  .el-drawer__header {
+    margin-bottom: 0;
+    padding: var(--space-lg);
+    border-bottom: none;
+
+    .el-drawer__title {
+      font-size: 16px;
+      font-weight: 600;
+    }
+  }
+
+  .el-drawer__body {
+    padding: var(--space-lg);
+  }
+}
+
+// ============================================
+// 4. Custom Component Styles
+// ============================================
+
+// --- Status Indicator ---
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-circle);
+
+  &.completed {
+    background: var(--color-success);
+  }
+
+  &.in-progress {
+    background: var(--color-accent);
+  }
+
+  &.planning {
+    background: var(--color-text-tertiary);
+  }
+
+  &.paused {
+    background: var(--color-warning);
+  }
+}
+
+// --- Pill Link (Apple-style CTA) ---
+.link-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-link-light);
+  color: var(--color-link-light);
+  font-size: 14px;
+  background: transparent;
+  text-decoration: none;
+  transition: all var(--transition-fast);
+
+  &:hover {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+  }
+}
+
+// ============================================
+// 5. Dark Section Mode
+// ============================================
+
+.section-dark {
+  background: var(--color-bg-dark);
+  color: var(--color-text-light);
+
+  .el-card {
+    background: var(--color-surface-dark-1);
+    color: var(--color-text-light);
+  }
+
+  .el-button--default {
+    background: var(--color-surface-dark-2);
+    color: var(--color-text-light);
+  }
+
+  .el-button--text {
+    color: var(--color-link-dark);
+  }
+
+  .el-input .el-input__wrapper {
+    background: var(--color-surface-dark-1);
+
+    .el-input__inner {
+      color: var(--color-text-light);
+    }
+  }
+
+  .el-table tr:hover td.el-table__cell {
+    background: var(--color-surface-dark-2);
+  }
+
+  .el-progress .el-progress-bar__outer {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .el-form-item__label {
+    color: rgba(255, 255, 255, 0.8);
+  }
+}
+
+// ============================================
+// 6. Responsive Adaptation
+// ============================================
+
+@media screen and (max-width: 768px) {
+  :root {
+    --space-lg: 16px;
+    --space-xl: 24px;
+  }
+
+  .el-card__body {
+    padding: 16px;
+  }
+
+  .el-dialog {
+    width: 95% !important;
+    margin-top: 5vh !important;
+  }
+
+  // Filter bar mobile adaptation
+  .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-md);
+    padding: var(--space-md);
+  }
+
+  .filter-left,
+  .filter-right {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .filter-item {
+    width: 100%;
+  }
+
+  .filter-item .el-select,
+  .filter-item .el-input {
+    flex: 1;
+    width: 100% !important;
+  }
+
+  .model-select,
+  .keyword-input {
+    width: 100% !important;
+  }
+
+  // Table mobile adaptation
+  .el-table {
+    font-size: 13px;
+  }
+
+  .el-table th.el-table__cell,
+  .el-table td.el-table__cell {
+    padding: 12px 8px;
+  }
+
+  .el-table .cell {
+    padding: 0 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // Hide less important columns on mobile
+  .el-table__header-wrapper th:nth-child(n+5),
+  .el-table__body-wrapper td:nth-child(n+5) {
+    display: none;
+  }
+
+  // Form mobile adaptation
+  .el-form-item {
+    margin-bottom: var(--space-md);
+  }
+
+  .el-form-item__label {
+    float: none;
+    display: block;
+    text-align: left;
+    line-height: 1.5;
+    padding-bottom: 8px;
+  }
+
+  .el-form-item__content {
+    margin-left: 0 !important;
+  }
+
+  .el-row {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  .el-col {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    margin-bottom: var(--space-md);
+  }
+
+  // Pagination mobile adaptation
+  .el-pagination {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+  }
+
+  .el-pagination .el-pagination__sizes,
+  .el-pagination .el-pagination__jump {
+    display: none;
+  }
+
+  .el-pagination .el-pager {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  // Card mobile adaptation
+  .el-card {
+    border-radius: var(--radius-lg);
+  }
+
+  .el-card__header {
+    padding: var(--space-md);
+  }
+
+  .el-card__body {
+    padding: var(--space-md);
+  }
+
+  // Button mobile adaptation
+  .el-button {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .el-button + .el-button {
+    margin-left: var(--space-sm);
+  }
+
+  // Tabs mobile adaptation
+  .el-tabs__nav-wrap::after {
+    display: none;
+  }
+
+  .el-tabs__item {
+    padding: 0 12px;
+    font-size: 14px;
+  }
+
+  // Selection bar mobile
+  .selection-bar {
+    flex-direction: column;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  // Advanced search mobile
+  .advanced-search {
+    padding: var(--space-md);
+  }
+
+  // Table container mobile
+  .table-container {
+    border-radius: var(--radius-lg);
+    overflow-x: auto;
+  }
+
+  // Page specific mobile styles
+  .instances-page,
+  .models-page,
+  .global-attributes-page,
+  .schema-form-page,
+  .instance-relations-page,
+  .relation-definitions-page {
+    padding: var(--space-sm);
+    gap: var(--space-sm);
+  }
+
+  // Instance relations card header
+  .card-header {
+    flex-direction: column;
+    gap: var(--space-sm);
+    align-items: stretch;
+  }
+
+  .header-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    width: 100%;
+  }
+
+  .header-actions .el-select {
+    width: 100% !important;
+  }
+
+  .relation-select {
+    width: 100%;
+  }
+
+  .header-actions .el-button {
+    width: 100%;
+  }
+}
+
+// Tablet adaptation
+@media screen and (min-width: 769px) and (max-width: 1024px) {
+  .filter-bar {
+    flex-wrap: wrap;
+  }
+
+  .filter-left,
+  .filter-right {
+    flex: 1;
+    min-width: 300px;
+  }
+
+  .model-select {
+    width: 180px;
+  }
+
+  .keyword-input {
+    width: 200px;
+  }
+}
+
+// Small mobile
+@media screen and (max-width: 480px) {
+  :root {
+    --space-md: 12px;
+    --space-lg: 12px;
+  }
+
+  .el-dialog {
+    width: 98% !important;
+    margin: var(--space-sm) !important;
+  }
+
+  .el-message-box {
+    width: 90% !important;
+  }
+
+  .el-notification {
+    width: 90% !important;
+    left: 5% !important;
+    right: 5% !important;
+  }
+
+  // Stack buttons vertically on very small screens
+  .filter-right {
+    flex-direction: column;
+  }
+
+  .filter-right .el-button {
+    width: 100%;
+  }
+}
+
+// ============================================
+// 7. Utility Classes (for remaining Tailwind compatibility)
+// ============================================
+
+.instances-page,
+.models-page,
+.global-attributes-page,
+.schema-form-page {
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.filter-bar {
+  background: var(--color-bg-light);
+  padding: var(--space-md);
+  border-radius: var(--radius-xl);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.filter-left,
+.filter-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.filter-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.filter-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.model-select {
+  width: 220px;
+}
+
+.keyword-input {
+  width: 250px;
+}
+
+.model-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.model-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.advanced-search {
+  background: var(--color-surface-light);
+  padding: var(--space-md);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.selection-bar {
+  background: #eff6ff;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.table-container {
+  background: var(--color-surface-light);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.pagination-bar {
+  padding: var(--space-md);
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.form-section {
+  background: var(--color-bg-light);
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-lg);
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-dark);
+  margin-bottom: var(--space-sm);
+  padding-left: var(--space-sm);
+  border-left: 3px solid var(--color-accent);
+}
+
+// Draggable attribute items
+.draggable-item {
+  &:hover .remove-btn {
+    opacity: 1;
+  }
+  .remove-btn {
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+  }
+}
+
+// ============================================
+// 8. Common Page Mobile Adaptation
+// ============================================
+
+// Page container
+.page-container {
+  padding: var(--space-lg);
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-lg);
+}
+
+.page-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-dark);
+}
+
+.page-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+// Card header for mobile
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.card-header-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-dark);
+}
+
+.card-header-actions {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+// Tree section mobile
+.tree-section {
+  padding: var(--space-md) 0;
+}
+
+.custom-tree-node {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 6px 0;
+}
+
+.node-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.node-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.node-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.node-label {
+  font-size: 14px;
+  color: var(--color-text-dark);
+}
+
+// Relation definitions page
+.relation-definitions-page {
+  padding: var(--space-lg);
+}
+
+// Instance relations page
+.instance-relations-page {
+  padding: var(--space-lg);
+}
+
+// Topology view container
+.topology-container {
+  position: relative;
+  height: calc(100vh - 200px);
+  background: var(--color-bg-light);
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.topology-controls {
+  position: absolute;
+  top: var(--space-md);
+  left: var(--space-md);
+  z-index: 10;
+  display: flex;
+  gap: var(--space-sm);
+}
+
+// ============================================
+// 9. Mobile Responsive - 768px Tablet
+// ============================================
+
+@media screen and (max-width: 768px) {
+  :root {
+    --space-lg: 16px;
+    --space-xl: 24px;
+  }
+
+  .page-container {
+    padding: var(--space-md);
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-md);
+  }
+
+  .page-title {
+    font-size: 16px;
+    text-align: center;
+  }
+
+  .page-actions {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  // Card header mobile
+  .card-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-sm);
+  }
+
+  .card-header-actions {
+    justify-content: center;
+  }
+
+  .card-header-actions .el-button,
+  .card-header-actions .el-select {
+    flex: 1;
+    min-width: 80px;
+  }
+
+  // Filter bar mobile
+  .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-sm);
+    padding: var(--space-sm);
+  }
+
+  .filter-left,
+  .filter-right {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .filter-item {
+    width: 100%;
+  }
+
+  .filter-item .el-select,
+  .filter-item .el-input {
+    flex: 1;
+    width: 100% !important;
+  }
+
+  .model-select,
+  .keyword-input {
+    width: 100% !important;
+  }
+
+  // Table mobile
+  .el-table {
+    font-size: 12px;
+  }
+
+  .el-table th.el-table__cell,
+  .el-table td.el-table__cell {
+    padding: 8px 4px;
+  }
+
+  .el-table .cell {
+    padding: 0 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // Hide less important columns on mobile
+  .el-table__header-wrapper th:nth-child(n+5),
+  .el-table__body-wrapper td:nth-child(n+5) {
+    display: none;
+  }
+
+  // Form mobile
+  .el-form-item {
+    margin-bottom: var(--space-md);
+  }
+
+  .el-form-item__label {
+    float: none;
+    display: block;
+    text-align: left;
+    line-height: 1.5;
+    padding-bottom: 4px;
+  }
+
+  .el-form-item__content {
+    margin-left: 0 !important;
+  }
+
+  .el-row {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  .el-col {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    margin-bottom: var(--space-md);
+  }
+
+  // Pagination mobile
+  .el-pagination {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+  }
+
+  .el-pagination__sizes,
+  .el-pagination__jump {
+    display: none;
+  }
+
+  // Card mobile
+  .el-card {
+    border-radius: var(--radius-lg);
+  }
+
+  .el-card__header {
+    padding: var(--space-md);
+  }
+
+  .el-card__body {
+    padding: var(--space-md);
+  }
+
+  // Button mobile
+  .el-button {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .el-button + .el-button {
+    margin-left: var(--space-xs);
+  }
+
+  // Tabs mobile
+  .el-tabs__nav-wrap::after {
+    display: none;
+  }
+
+  .el-tabs__item {
+    padding: 0 8px;
+    font-size: 13px;
+  }
+
+  // Dialog mobile
+  .el-dialog {
+    width: 95% !important;
+    margin-top: 5vh !important;
+  }
+
+  // Tree section mobile
+  .tree-section {
+    padding: var(--space-sm) 0;
+  }
+
+  .custom-tree-node {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .node-left {
+    flex-wrap: wrap;
+  }
+
+  .node-right {
+    width: 100%;
+    justify-content: flex-start;
+    margin-top: 4px;
+  }
+
+  .node-label {
+    font-size: 13px;
+  }
+
+  // Topology mobile
+  .topology-container {
+    height: calc(100vh - 280px);
+    border-radius: var(--radius-lg);
+  }
+
+  .topology-controls {
+    flex-direction: column;
+    width: calc(100% - 32px);
+    left: 16px;
+    right: 16px;
+  }
+
+  .topology-controls .el-select,
+  .topology-controls .el-input-number {
+    width: 100% !important;
+  }
+
+  .topology-controls .el-button {
+    width: 100%;
+  }
+
+  // Relation definitions page
+  .relation-definitions-page {
+    padding: var(--space-sm);
+  }
+
+  // Instance relations page
+  .instance-relations-page {
+    padding: var(--space-sm);
+  }
+
+  // Hierarchy view page
+  .hierarchy-view-page {
+    padding: var(--space-sm);
+  }
+}
+
+// ============================================
+// 10. Small Mobile - 480px
+// ============================================
+
+@media screen and (max-width: 480px) {
+  :root {
+    --space-md: 12px;
+    --space-lg: 12px;
+  }
+
+  .page-container {
+    padding: var(--space-sm);
+  }
+
+  .page-title {
+    font-size: 15px;
+  }
+
+  .el-dialog {
+    width: 98% !important;
+    margin: var(--space-xs) !important;
+  }
+
+  .el-message-box {
+    width: 90% !important;
+  }
+
+  .el-notification {
+    width: 90% !important;
+    left: 5% !important;
+    right: 5% !important;
+  }
+
+  // Stack buttons vertically on very small screens
+  .filter-right,
+  .page-actions,
+  .card-header-actions {
+    flex-direction: column;
+  }
+
+  .filter-right .el-button,
+  .page-actions .el-button,
+  .card-header-actions .el-button {
+    width: 100%;
+  }
+
+  // Button only icon on very small screens
+  .el-button span {
+    display: none;
+  }
+
+  .el-button-group .el-button {
+    padding: 8px;
+  }
+
+  // Table more columns hidden
+  .el-table__header-wrapper th:nth-child(n+4),
+  .el-table__body-wrapper td:nth-child(n+4) {
+    display: none;
+  }
+
+  // Topology
+  .topology-container {
+    height: calc(100vh - 320px);
+  }
+
+  .custom-node {
+    min-width: 100px;
+    padding: 6px;
+  }
+
+  .node-title {
+    font-size: 11px;
+  }
+
+  .node-body {
+    font-size: 10px;
+  }
+}
+
+// ============================================
+// 11. Tablet - 769px to 1024px
+// ============================================
+
+@media screen and (min-width: 769px) and (max-width: 1024px) {
+  .filter-bar {
+    flex-wrap: wrap;
+  }
+
+  .filter-left,
+  .filter-right {
+    flex: 1;
+    min-width: 250px;
+  }
+
+  .model-select {
+    width: 160px;
+  }
+
+  .keyword-input {
+    width: 180px;
+  }
+
+  .topology-container {
+    height: calc(100vh - 220px);
+  }
+}
