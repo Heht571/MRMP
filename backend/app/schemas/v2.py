@@ -14,7 +14,6 @@ class AttributeType(str, Enum):
     DATETIME = "datetime"
     JSON = "json"
     UUID = "uuid"
-    TIMESERIES = "timeseries"
 
 
 class OperateType(str, Enum):
@@ -139,7 +138,6 @@ class ModelBaseV2(BaseModel):
     category: str = Field(..., max_length=50, description="模型分类")
     icon: Optional[str] = Field(None, max_length=100, description="图标标识")
     color: Optional[str] = Field(None, max_length=20, description="显示颜色")
-    is_root_model: bool = Field(False, description="是否为根节点模型(顶级资源)")
     unique_key_id: Optional[UUID] = Field(None, description="唯一标识属性ID")
     show_key_id: Optional[UUID] = Field(None, description="显示名称属性ID")
 
@@ -155,7 +153,6 @@ class ModelUpdateV2(BaseModel):
     icon: Optional[str] = None
     color: Optional[str] = None
     is_active: Optional[bool] = None
-    is_root_model: Optional[bool] = Field(None, description="是否为根节点模型")
     unique_key_id: Optional[UUID] = None
     show_key_id: Optional[UUID] = None
     attributes: Optional[List[ModelAttributeCreate]] = Field(None, description="属性列表(更新时替换全部)")
@@ -164,14 +161,13 @@ class ModelUpdateV2(BaseModel):
 class ModelResponseV2(ModelBaseV2):
     id: UUID
     is_active: bool
-    is_root_model: bool
     unique_key: Optional[GlobalAttributeResponse] = None
     show_key: Optional[GlobalAttributeResponse] = None
     attributes: List[ModelAttributeResponse] = Field(default_factory=list)
     created_at: datetime
     updated_at: Optional[datetime] = None
     created_by: Optional[str] = None
-
+    
     class Config:
         from_attributes = True
 

@@ -55,6 +55,11 @@ class RelationDefinition(Base):
     # 关系类型: contain=包含(层级), connect=连接(对等)
     relation_type = Column(String(20), default="contain", nullable=False, comment="关系类型: contain=包含(层级), connect=连接(对等)")
 
+    relation_label = Column(String(100), nullable=False, comment="关系标签")
+    inverse_label = Column(String(100), nullable=True, comment="反向关系标签")
+    is_hierarchical = Column(Boolean, default=False, comment="是否为层级关系")
+    is_bidirectional = Column(Boolean, default=False, comment="是否为双向关系")
+
     min_cardinality = Column(Integer, default=0, comment="最小基数")
     max_cardinality = Column(Integer, default=-1, comment="最大基数(-1表示无限)")
     
@@ -78,6 +83,7 @@ class RelationDefinition(Base):
         Index('ix_relation_definitions_source_model_id', 'source_model_id'),
         Index('ix_relation_definitions_target_model_id', 'target_model_id'),
         Index('ix_relation_definitions_status', 'status'),
+        Index('ix_relation_definitions_source_target', 'source_model_id', 'target_model_id'),
         UniqueConstraint('source_model_id', 'target_model_id', 'code', name='uq_relation_definition'),
         CheckConstraint('source_model_id != target_model_id', name='no_self_relation_definition'),
     )
@@ -131,6 +137,8 @@ class InstanceRelation(Base):
         Index('ix_instance_relations_relation_definition_id', 'relation_definition_id'),
         Index('ix_instance_relations_source_instance_id', 'source_instance_id'),
         Index('ix_instance_relations_target_instance_id', 'target_instance_id'),
+        Index('ix_instance_relations_source_target', 'source_instance_id', 'target_instance_id'),
+        Index('ix_instance_relations_def_source', 'relation_definition_id', 'source_instance_id'),
         UniqueConstraint('relation_definition_id', 'source_instance_id', 'target_instance_id', name='uq_instance_relation'),
         CheckConstraint('source_instance_id != target_instance_id', name='no_self_instance_relation'),
     )

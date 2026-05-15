@@ -4,7 +4,7 @@
       <el-input
         v-model="searchName"
         placeholder="搜索属性名称"
-        class="keyword-input"
+        class="w-64"
         clearable
         @clear="loadAttributes"
         @keyup.enter="loadAttributes"
@@ -13,22 +13,23 @@
           <el-icon><Search /></el-icon>
         </template>
       </el-input>
-      <el-button type="primary" @click="handleAdd">
-        <el-icon><Plus /></el-icon>
+      <el-button type="primary" @click="handleAdd" class="bg-indigo-600 hover:bg-indigo-700 border-indigo-600">
+        <el-icon class="mr-1"><Plus /></el-icon>
         新增属性
       </el-button>
     </template>
 
-    <div class="table-container">
-    <el-table
-      :data="attributes"
-      v-loading="loading"
-      stripe
+    <el-table 
+      :data="attributes" 
+      v-loading="loading" 
+      stripe 
       style="width: 100%"
+      :header-cell-style="{ background: '#f8fafc', color: '#475569', fontWeight: '600' }"
+      :row-class-name="'hover:bg-gray-50 transition-colors'"
     >
       <el-table-column prop="name" label="属性名称" width="180">
         <template #default="{ row }">
-          <span style="font-family: monospace; color: var(--color-accent); background: #eff6ff; padding: 4px 8px; border-radius: var(--radius-sm); font-size: 12px;">{{ row.name }}</span>
+          <span class="font-mono text-indigo-600 bg-indigo-50 px-2 py-1 rounded text-xs">{{ row.name }}</span>
         </template>
       </el-table-column>
       <el-table-column prop="label" label="显示标签" width="150" />
@@ -39,8 +40,7 @@
       </el-table-column>
       <el-table-column label="特性" min-width="240">
         <template #default="{ row }">
-          <div style="display: flex; flex-wrap: wrap; gap: 4px;">
-            <el-tag v-if="row.type === 'timeseries'" size="small" type="warning" effect="plain">时序</el-tag>
+          <div class="flex flex-wrap gap-1">
             <el-tag v-if="row.is_choice" size="small" type="info" effect="plain">枚举</el-tag>
             <el-tag v-if="row.is_reference" size="small" type="warning" effect="plain">引用</el-tag>
             <el-tag v-if="row.is_computed" size="small" type="success" effect="plain">计算</el-tag>
@@ -51,42 +51,42 @@
       </el-table-column>
       <el-table-column label="引用模型" width="150">
         <template #default="{ row }">
-          <span v-if="row.is_reference && row.reference_model_id" style="color: var(--color-text-secondary); display: flex; align-items: center; gap: 4px;">
+          <span v-if="row.is_reference && row.reference_model_id" class="text-gray-600 flex items-center gap-1">
             <el-icon><Link /></el-icon>
             {{ getModelName(row.reference_model_id) }}
           </span>
-          <span v-else style="color: var(--color-text-tertiary);">-</span>
+          <span v-else class="text-gray-300">-</span>
         </template>
       </el-table-column>
       <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip>
         <template #default="{ row }">
-          <span style="color: var(--color-text-secondary);">{{ row.description || '-' }}</span>
+          <span class="text-gray-500">{{ row.description || '-' }}</span>
         </template>
       </el-table-column>
       <el-table-column label="操作" width="150" fixed="right">
         <template #default="{ row }">
-          <div style="display: flex; align-items: center; gap: var(--space-sm);">
+          <div class="flex items-center gap-2">
             <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
             <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
           </div>
         </template>
       </el-table-column>
     </el-table>
-    </div>
 
     <!-- Dialog -->
-    <el-dialog
-      v-model="dialogVisible"
-      :title="dialogTitle"
-      width="800px"
+    <el-dialog 
+      v-model="dialogVisible" 
+      :title="dialogTitle" 
+      width="800px" 
       destroy-on-close
+      class="rounded-xl overflow-hidden"
     >
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="120px" style="padding: var(--space-md) 0;">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="120px" class="py-4">
         <el-row :gutter="24">
           <el-col :span="12">
             <el-form-item label="属性名称" prop="name">
               <el-input v-model="form.name" placeholder="英文键，如：ip_address" :disabled="isEdit">
-                <template #prefix><el-icon style="color: var(--color-text-tertiary);"><Key /></el-icon></template>
+                <template #prefix><el-icon class="text-gray-400"><Key /></el-icon></template>
               </el-input>
             </el-form-item>
           </el-col>
@@ -100,7 +100,7 @@
         <el-row :gutter="24">
           <el-col :span="12">
             <el-form-item label="数据类型" prop="type">
-              <el-select v-model="form.type" placeholder="选择数据类型" style="width: 100%;">
+              <el-select v-model="form.type" placeholder="选择数据类型" class="w-full">
                 <el-option label="字符串 (String)" value="string" />
                 <el-option label="数字 (Number)" value="number" />
                 <el-option label="枚举 (Enum)" value="enum" />
@@ -109,7 +109,6 @@
                 <el-option label="日期时间 (Datetime)" value="datetime" />
                 <el-option label="JSON" value="json" />
                 <el-option label="UUID" value="uuid" />
-                <el-option label="时间序列 (Timeseries)" value="timeseries" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -120,28 +119,28 @@
           </el-col>
         </el-row>
 
-        <div class="form-section">
-          <div class="section-title" style="display: flex; align-items: center;">
-            <el-icon><Operation /></el-icon> 属性特性
+        <div class="bg-gray-50 p-4 rounded-lg border border-gray-100 mb-6">
+          <div class="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+            <el-icon class="mr-1"><Operation /></el-icon> 属性特性
           </div>
           <el-row :gutter="24">
-            <el-col :span="6"><el-form-item label="枚举类型" style="margin-bottom: 0;"><el-switch v-model="form.is_choice" /></el-form-item></el-col>
-            <el-col :span="6"><el-form-item label="列表类型" style="margin-bottom: 0;"><el-switch v-model="form.is_list" /></el-form-item></el-col>
-            <el-col :span="6"><el-form-item label="唯一性" style="margin-bottom: 0;"><el-switch v-model="form.is_unique" /></el-form-item></el-col>
-            <el-col :span="6"><el-form-item label="可索引" style="margin-bottom: 0;"><el-switch v-model="form.is_indexed" /></el-form-item></el-col>
+            <el-col :span="6"><el-form-item label="枚举类型" class="mb-0"><el-switch v-model="form.is_choice" /></el-form-item></el-col>
+            <el-col :span="6"><el-form-item label="列表类型" class="mb-0"><el-switch v-model="form.is_list" /></el-form-item></el-col>
+            <el-col :span="6"><el-form-item label="唯一性" class="mb-0"><el-switch v-model="form.is_unique" /></el-form-item></el-col>
+            <el-col :span="6"><el-form-item label="可索引" class="mb-0"><el-switch v-model="form.is_indexed" /></el-form-item></el-col>
           </el-row>
-          <el-row :gutter="24" style="margin-top: var(--space-sm);">
-            <el-col :span="6"><el-form-item label="可排序" style="margin-bottom: 0;"><el-switch v-model="form.is_sortable" /></el-form-item></el-col>
-            <el-col :span="6"><el-form-item label="引用属性" style="margin-bottom: 0;"><el-switch v-model="form.is_reference" /></el-form-item></el-col>
-            <el-col :span="6"><el-form-item label="计算属性" style="margin-bottom: 0;"><el-switch v-model="form.is_computed" /></el-form-item></el-col>
+          <el-row :gutter="24" class="mt-2">
+            <el-col :span="6"><el-form-item label="可排序" class="mb-0"><el-switch v-model="form.is_sortable" /></el-form-item></el-col>
+            <el-col :span="6"><el-form-item label="引用属性" class="mb-0"><el-switch v-model="form.is_reference" /></el-form-item></el-col>
+            <el-col :span="6"><el-form-item label="计算属性" class="mb-0"><el-switch v-model="form.is_computed" /></el-form-item></el-col>
           </el-row>
         </div>
 
         <template v-if="form.is_reference">
-          <div style="background: #fffbeb; padding: var(--space-md); border-radius: var(--radius-lg); border: 1px solid #fde68a; margin-bottom: var(--space-lg);">
-             <div style="font-size: 14px; font-weight: 600; color: #b45309; margin-bottom: var(--space-sm);">引用配置</div>
-             <el-form-item label="引用模型" prop="reference_model_id" style="margin-bottom: 0;">
-              <el-select v-model="form.reference_model_id" placeholder="选择引用模型" style="width: 100%;">
+          <div class="bg-amber-50 p-4 rounded-lg border border-amber-100 mb-6">
+             <div class="text-sm font-semibold text-amber-800 mb-3">引用配置</div>
+             <el-form-item label="引用模型" prop="reference_model_id" class="mb-0">
+              <el-select v-model="form.reference_model_id" placeholder="选择引用模型" class="w-full">
                 <el-option v-for="model in models" :key="model.id" :label="model.name" :value="model.id" />
               </el-select>
             </el-form-item>
@@ -149,69 +148,33 @@
         </template>
 
         <template v-if="form.is_choice">
-          <div style="background: #eff6ff; padding: var(--space-md); border-radius: var(--radius-lg); border: 1px solid #bfdbfe; margin-bottom: var(--space-lg);">
-            <div style="font-size: 14px; font-weight: 600; color: #1d4ed8; margin-bottom: var(--space-sm);">枚举值配置</div>
-            <div style="display: flex; flex-direction: column; gap: var(--space-sm);">
-              <div v-for="(item, index) in form.enum_values" :key="index" style="display: flex; align-items: center; gap: var(--space-sm);">
-                <el-input v-model="item.value" placeholder="值 (Value)" style="width: 120px;" />
-                <el-input v-model="item.label" placeholder="标签 (Label)" style="width: 120px;" />
+          <div class="bg-blue-50 p-4 rounded-lg border border-blue-100 mb-6">
+            <div class="text-sm font-semibold text-blue-800 mb-3">枚举值配置</div>
+            <div class="space-y-2">
+              <div v-for="(item, index) in form.enum_values" :key="index" class="flex items-center gap-2">
+                <el-input v-model="item.value" placeholder="值 (Value)" class="w-32" />
+                <el-input v-model="item.label" placeholder="标签 (Label)" class="w-32" />
                 <el-color-picker v-model="item.color" show-alpha />
                 <el-button type="danger" circle size="small" @click="form.enum_values.splice(index, 1)">
                   <el-icon><Delete /></el-icon>
                 </el-button>
               </div>
               <el-button type="primary" link @click="addEnumValue" size="small">
-                <el-icon><Plus /></el-icon> 添加枚举值
+                <el-icon class="mr-1"><Plus /></el-icon> 添加枚举值
               </el-button>
             </div>
           </div>
         </template>
 
         <template v-if="form.is_computed">
-          <div style="background: #f0fdf4; padding: var(--space-md); border-radius: var(--radius-lg); border: 1px solid #bbf7d0; margin-bottom: var(--space-lg);">
-            <div style="font-size: 14px; font-weight: 600; color: #15803d; margin-bottom: var(--space-sm);">计算配置</div>
+          <div class="bg-green-50 p-4 rounded-lg border border-green-100 mb-6">
+            <div class="text-sm font-semibold text-green-800 mb-3">计算配置</div>
             <el-form-item label="计算表达式">
               <el-input v-model="form.compute_expr" type="textarea" :rows="2" placeholder="如: ${attr1} + ${attr2}" />
             </el-form-item>
-            <el-form-item label="计算脚本" style="margin-bottom: 0;">
+            <el-form-item label="计算脚本" class="mb-0">
               <el-input v-model="form.compute_script" type="textarea" :rows="4" placeholder="Python脚本" />
             </el-form-item>
-          </div>
-        </template>
-
-        <template v-if="form.type === 'timeseries'">
-          <div style="background: #fdf4ff; padding: var(--space-md); border-radius: var(--radius-lg); border: 1px solid #f0abfc; margin-bottom: var(--space-lg);">
-            <div style="font-size: 14px; font-weight: 600; color: #a21caf; margin-bottom: var(--space-sm);">时序数据配置</div>
-            <el-row :gutter="24">
-              <el-col :span="12">
-                <el-form-item label="时序单位" style="margin-bottom: 0;">
-                  <el-input v-model="form.timeseries_unit" placeholder="如: cpu, memory, disk, network" />
-                </el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item label="采样间隔(秒)" style="margin-bottom: 0;">
-                  <el-input-number v-model="form.timeseries_interval" :min="1" :step="10" style="width: 100%;" />
-                </el-form-item>
-              </el-col>
-            </el-row>
-            <el-row :gutter="24" style="margin-top: var(--space-sm);">
-              <el-col :span="12">
-                <el-form-item label="保留天数" style="margin-bottom: 0;">
-                  <el-input-number v-model="form.timeseries_retention" :min="1" :max="365" style="width: 100%;" />
-                </el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item label="默认聚合" style="margin-bottom: 0;">
-                  <el-select v-model="form.timeseries_aggregation" style="width: 100%;">
-                    <el-option label="平均值 (avg)" value="avg" />
-                    <el-option label="最小值 (min)" value="min" />
-                    <el-option label="最大值 (max)" value="max" />
-                    <el-option label="求和 (sum)" value="sum" />
-                    <el-option label="最新值 (last)" value="last" />
-                  </el-select>
-                </el-form-item>
-              </el-col>
-            </el-row>
           </div>
         </template>
 
@@ -245,9 +208,9 @@
       </el-form>
 
       <template #footer>
-        <div style="display: flex; justify-content: flex-end; gap: var(--space-sm);">
+        <div class="flex justify-end gap-3">
           <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleSubmit" :loading="submitting">确定</el-button>
+          <el-button type="primary" @click="handleSubmit" :loading="submitting" class="bg-indigo-600 border-indigo-600 hover:bg-indigo-700">确定</el-button>
         </div>
       </template>
     </el-dialog>
@@ -291,10 +254,6 @@ const form = reactive({
   max_value: '',
   choice_webhook: null,
   choice_script: '',
-  timeseries_unit: '',
-  timeseries_interval: 60,
-  timeseries_retention: 30,
-  timeseries_aggregation: 'avg',
 })
 
 const rules = {
@@ -317,8 +276,7 @@ const getTypeTagType = (type: string) => {
     date: 'danger',
     datetime: 'danger',
     json: '',
-    uuid: 'info',
-    timeseries: 'warning'
+    uuid: 'info'
   }
   return map[type] || ''
 }
@@ -358,10 +316,6 @@ const resetForm = () => {
     max_value: '',
     choice_webhook: null,
     choice_script: '',
-    timeseries_unit: '',
-    timeseries_interval: 60,
-    timeseries_retention: 30,
-    timeseries_aggregation: 'avg',
   })
 }
 

@@ -84,7 +84,6 @@ class AttributeType(str, Enum):
     DATETIME = "datetime"
     JSON = "json"
     UUID = "uuid"
-    TIMESERIES = "timeseries"
 
 
 class RegionBase(BaseModel):
@@ -144,12 +143,6 @@ class AttributeBase(BaseModel):
     max_value: Optional[str] = Field(None, max_length=50, description="最大值")
     sort_order: int = Field(0, description="排序序号")
     group_name: Optional[str] = Field(None, max_length=50, description="属性分组名称")
-    # Timeseries fields
-    is_timeseries: Optional[bool] = Field(False, description="是否时序属性")
-    timeseries_unit: Optional[str] = Field(None, max_length=50, description="时序单位")
-    timeseries_interval: Optional[int] = Field(60, description="采样间隔(秒)")
-    timeseries_retention: Optional[int] = Field(30, description="数据保留天数")
-    timeseries_aggregation: Optional[str] = Field("avg", description="默认聚合函数")
 
 
 class AttributeCreate(AttributeBase):

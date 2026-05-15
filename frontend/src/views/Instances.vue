@@ -140,15 +140,7 @@
               <span style="font-family: monospace; font-size: 12px; color: var(--color-text-tertiary); background: var(--color-bg-light); padding: 2px 6px; border-radius: 4px;">{{ row.code }}</span>
             </template>
           </el-table-column>
-          
-          <el-table-column prop="status" label="状态" width="100">
-            <template #default="{ row }">
-              <el-tag :type="STATUS_OPTIONS.find(o => o.value === row.status)?.color || 'info'" size="small">
-                {{ STATUS_OPTIONS.find(o => o.value === row.status)?.label || row.status || '规划中' }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          
+
           <el-table-column
             v-for="attr in displayAttributes"
             :key="attr.id"

@@ -255,35 +255,56 @@
       </div>
     </el-dialog>
 
-    <el-dialog 
-      v-model="relateDialogVisible" 
-      title="关联父级资源" 
-      width="500px"
+    <el-dialog
+      v-model="relateDialogVisible"
+      title="关联父级资源"
+      width="550px"
     >
-      <el-form label-width="80px">
+      <el-alert
+        v-if="!availableRelationDefs || availableRelationDefs.length === 0"
+        title="该模型尚未定义任何关系，请先前往关系定义页面新增关系定义"
+        type="error"
+        :closable="false"
+        style="margin-bottom: 16px;"
+      />
+      <el-form v-else label-width="80px">
         <el-form-item label="当前实例">
           <el-input :value="orphanInstance?.name" disabled />
         </el-form-item>
         <el-form-item label="所属模型">
           <el-input :value="orphanInstance?.model_name" disabled />
         </el-form-item>
-        <el-form-item label="父级资源">
-          <el-select v-model="selectedParentId" placeholder="请选择父级资源" style="width: 100%">
-            <el-option 
-              v-for="parent in availableParents" 
-              :key="parent.id" 
-              :label="parent.name" 
+        <el-form-item label="关联关系" required>
+          <el-select v-model="selectedRelationDefId" placeholder="请选择关系" style="width: 100%" @change="handleRelationDefChange">
+            <el-option
+              v-for="rel in availableRelationDefs"
+              :key="rel.id"
+              :label="`${rel.source_model?.name} ${rel.relation_label} ${rel.target_model?.name}`"
+              :value="rel.id"
+            >
+              <span>{{ rel.source_model?.name }}</span>
+              <span style="color: #909399;"> {{ rel.relation_label }} </span>
+              <span>{{ rel.target_model?.name }}</span>
+            </el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="selectedRelationDefId" label="父级资源">
+          <el-select v-model="selectedParentId" placeholder="请选择父级资源" style="width: 100%" filterable :loading="parentsLoading">
+            <el-option
+              v-for="parent in availableParents"
+              :key="parent.id"
+              :label="parent.name"
               :value="parent.id"
             >
               <span>{{ parent.name }}</span>
-              <el-tag size="small" type="info" style="margin-left: 8px;">{{ parent.model_name }}</el-tag>
+              <el-tag size="small" type="info" style="margin-left: 8px;">{{ parent.code }}</el-tag>
             </el-option>
           </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="relateDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleRelate" :loading="relating">确认关联</el-button>
+        <el-button type="primary" @click="handleRelate" :loading="relating" :disabled="!selectedRelationDefId || !selectedParentId">确认关联</el-button>
       </template>
     </el-dialog>
   </div>
@@ -314,6 +335,8 @@ const orphanInstance = ref(null)
 const parentInstances = ref([])
 const availableParents = ref([])
 const selectedParentId = ref(null)
+const selectedRelationDefId = ref(null)
+const availableRelationDefs = ref([])
 
 // Model selector
 const models = ref<any[]>([])
@@ -470,29 +493,66 @@ const showRelateDialog = async (instance) => {
   orphanInstance.value = instance
   relateDialogVisible.value = true
   selectedParentId.value = null
+  selectedRelationDefId.value = null
+  availableRelationDefs.value = []
+  availableParents.value = []
 
   try {
-    const res = await api.get('/v2/hierarchy/available-root-models')
-    const rootModels = res.data.filter(m => m.is_root_model)
+    // 获取所有关系定义，找出当前实例模型作为目标模型（被包含/被连接）的关系
+    const res = await api.get('/v2/relation-definitions/')
+    const allRels = res.data || []
 
-    let parents = []
-    for (const model of rootModels) {
-      const instancesRes = await api.get('/v1/instances/', { params: { model_id: model.id } })
-      if (instancesRes.data.items) {
-        parents.push(...instancesRes.data.items.map(item => ({
-          ...item,
-          model_name: model.name
-        })))
-      }
+    // 筛选出以当前实例模型为目标模型的关系定义（contain类型）
+    // 即：哪些模型"包含"当前实例
+    availableRelationDefs.value = allRels.filter(r =>
+      r.target_model_id === instance.model_id &&
+      r.relation_type === 'contain' &&
+      r.status === 'active'
+    )
+
+    if (availableRelationDefs.value.length === 0) {
+      ElMessage.warning('该模型没有可用的层级关系定义')
     }
-    availableParents.value = parents
   } catch (error) {
-    console.error('加载父级资源列表失败:', error)
-    availableParents.value = []
+    console.error('加载关系定义失败:', error)
+    availableRelationDefs.value = []
+  }
+}
+
+const handleRelationDefChange = async (relationDefId) => {
+  selectedParentId.value = null
+  availableParents.value = []
+
+  if (!relationDefId) return
+
+  parentsLoading.value = true
+  try {
+    // 找到选中的关系定义
+    const relationDef = availableRelationDefs.value.find(r => r.id === relationDefId)
+    if (!relationDef) return
+
+    // 获取目标模型的实例列表（作为父级）
+    const res = await api.get('/v1/instances/', {
+      params: {
+        model_id: relationDef.target_model_id,
+        page: 1,
+        page_size: 100
+      }
+    })
+    availableParents.value = res.data.items || []
+  } catch (error) {
+    console.error('加载父级实例列表失败:', error)
+    ElMessage.error('加载父级实例列表失败')
+  } finally {
+    parentsLoading.value = false
   }
 }
 
 const handleRelate = async () => {
+  if (!selectedRelationDefId.value) {
+    ElMessage.warning('请选择关联关系')
+    return
+  }
   if (!selectedParentId.value) {
     ElMessage.warning('请选择父级资源')
     return
@@ -500,18 +560,8 @@ const handleRelate = async () => {
 
   relating.value = true
   try {
-    const relationDefRes = await api.get('/v2/relation-definitions/')
-    const relationDef = relationDefRes.data.find(r =>
-      r.source_model_id === orphanInstance.value.model_id
-    )
-
-    if (!relationDef) {
-      ElMessage.error('未找到对应的关系定义')
-      return
-    }
-
     await api.post('/v2/instance-relations/', {
-      relation_definition_id: relationDef.id,
+      relation_definition_id: selectedRelationDefId.value,
       source_instance_id: orphanInstance.value.id,
       target_instance_id: selectedParentId.value
     })
@@ -521,7 +571,7 @@ const handleRelate = async () => {
     loadForest()
   } catch (error) {
     console.error('关联失败:', error)
-    ElMessage.error('关联失败')
+    ElMessage.error(error.response?.data?.detail || '关联失败')
   } finally {
     relating.value = false
   }

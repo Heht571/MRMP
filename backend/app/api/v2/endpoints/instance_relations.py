@@ -30,10 +30,17 @@ async def get_instance_relation_with_details(db: AsyncSession, relation_id: UUID
 
 
 def instance_relation_to_response(ir: InstanceRelation) -> dict:
+    relation_type = ir.relation_definition.relation_type if ir.relation_definition else None
+    relation_label = ir.relation_definition.relation_label if ir.relation_definition else None
+    inverse_label = ir.relation_definition.inverse_label if ir.relation_definition else None
+
     response = {
         "id": ir.id,
         "relation_definition_id": ir.relation_definition_id,
         "relation_definition_name": ir.relation_definition.name if ir.relation_definition else None,
+        "relation_type": relation_type,
+        "relation_label": relation_label,
+        "inverse_label": inverse_label,
         "source_instance_id": ir.source_instance_id,
         "target_instance_id": ir.target_instance_id,
         "attributes": ir.attributes or {},
@@ -151,18 +158,26 @@ async def create_instance_relation(
     db.add(instance_relation)
     await db.flush()
 
-    # 如果是 connect 类型（双向关系），自动创建反向关系
-    if is_bidirectional:
+    # 对于双向关系(connect)，自动创建反向实例关系
+    # 对于层级关系(contain)，也创建反向实例关系以保持一致性
+    inverse_code = f"{relation_def_obj.code}__inverse"
+    inverse_def = await db.execute(
+        select(RelationDefinition).where(RelationDefinition.code == inverse_code)
+    )
+    inverse_def_obj = inverse_def.scalar_one_or_none()
+
+    if inverse_def_obj:
+        # 检查反向关系是否已存在
         reverse_existed = await db.execute(
             select(InstanceRelation).where(
-                InstanceRelation.relation_definition_id == relation_in.relation_definition_id,
+                InstanceRelation.relation_definition_id == inverse_def_obj.id,
                 InstanceRelation.source_instance_id == relation_in.target_instance_id,
                 InstanceRelation.target_instance_id == relation_in.source_instance_id
             )
         )
         if not reverse_existed.scalar_one_or_none():
             reverse_relation = InstanceRelation(
-                relation_definition_id=relation_in.relation_definition_id,
+                relation_definition_id=inverse_def_obj.id,
                 source_instance_id=relation_in.target_instance_id,
                 target_instance_id=relation_in.source_instance_id,
                 attributes=relation_in.attributes,

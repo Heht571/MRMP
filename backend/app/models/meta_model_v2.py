@@ -15,7 +15,6 @@ class AttributeType(str, enum.Enum):
     DATETIME = "datetime"
     JSON = "json"
     UUID = "uuid"
-    TIMESERIES = "timeseries"
 
 
 class TriggerEventType(str, enum.Enum):
@@ -72,13 +71,7 @@ class GlobalAttribute(Base):
     
     choice_webhook = Column(JSONB, nullable=True, comment="枚举值Webhook配置")
     choice_script = Column(Text, nullable=True, comment="枚举值计算脚本")
-
-    is_timeseries = Column(Boolean, default=False, comment="是否时序属性")
-    timeseries_unit = Column(String(50), nullable=True, comment="时序单位: cpu/memory/disk/network/custom")
-    timeseries_interval = Column(Integer, default=60, comment="采样间隔(秒)")
-    timeseries_retention = Column(Integer, default=30, comment="数据保留天数")
-    timeseries_aggregation = Column(String(20), default='avg', comment="默认聚合函数: avg/min/max/sum/last")
-
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     created_by = Column(String(100), nullable=True, comment="创建人")
@@ -145,7 +138,7 @@ class ModelV2(Base):
     category = Column(String(50), nullable=False, comment="模型分类")
     icon = Column(String(100), nullable=True, comment="图标标识")
     color = Column(String(20), nullable=True, comment="显示颜色")
-    
+
     is_active = Column(Boolean, default=True, comment="是否启用")
     is_root_model = Column(Boolean, default=False, comment="是否为根节点模型(顶级资源)")
 
